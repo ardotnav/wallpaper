@@ -75,24 +75,24 @@ describe('wallpaperGenerator', () => {
       expect(circleMatches.length).toBeGreaterThanOrEqual(totalDays);
     });
 
-    test('should have filled circles for passed days', () => {
-      const date = new Date(2024, 0, 15); // Day 15
+    test('should have filled circles for completed days', () => {
+      const date = new Date(2024, 0, 15); // Day 15, so 14 days completed
       const svg = generateSVG(date);
       
       // Count filled circles (circle elements with fill="#FFFFFF")
-      // Includes 15 day circles + 2 circles from the % sign
+      // Includes 14 completed day circles + 2 circles from the % sign
       const filledCircleMatches = svg.match(/<circle[^>]*fill="#FFFFFF"/g) || [];
-      expect(filledCircleMatches.length).toBe(15 + 2); // 15 days + 2 from % sign
+      expect(filledCircleMatches.length).toBe(14 + 2); // 14 completed days + 2 from % sign
     });
 
-    test('should have empty circles for future days', () => {
-      const date = new Date(2024, 0, 15); // Day 15 of 366
+    test('should have empty circles for current and future days', () => {
+      const date = new Date(2024, 0, 15); // Day 15 of 366, 14 completed
       const svg = generateSVG(date);
       const totalDays = getTotalDaysInYear(2024);
       
-      // Should have empty circles for future days (plus percent sign circles)
+      // Should have empty circles for current day + future days
       const emptyCircles = (svg.match(/<circle[^>]*fill="none"[^>]*stroke/g) || []).length;
-      expect(emptyCircles).toBeGreaterThanOrEqual(totalDays - 15);
+      expect(emptyCircles).toBeGreaterThanOrEqual(totalDays - 14);
     });
 
     test('should include year progress percentage using shapes', () => {
@@ -129,26 +129,26 @@ describe('wallpaperGenerator', () => {
     });
 
     test('should handle year start correctly', () => {
-      const date = new Date(2024, 0, 1); // January 1st
+      const date = new Date(2024, 0, 1); // January 1st (0 days completed)
       const svg = generateSVG(date);
       
-      // 1 filled day circle + 2 circles from % sign
+      // 0 filled day circles + 2 circles from % sign
       const filledCircleMatches = svg.match(/<circle[^>]*fill="#FFFFFF"/g) || [];
-      expect(filledCircleMatches.length).toBe(1 + 2);
+      expect(filledCircleMatches.length).toBe(0 + 2);
     });
 
     test('should handle year end correctly', () => {
-      const date = new Date(2024, 11, 31); // December 31st (leap year)
+      const date = new Date(2024, 11, 31); // December 31st (leap year, 365 days completed)
       const svg = generateSVG(date);
       const totalDays = getTotalDaysInYear(2024);
       
-      // All day circles + 2 from % sign should be filled
+      // All completed day circles (totalDays - 1) + 2 from % sign should be filled
       const filledCircleMatches = svg.match(/<circle[^>]*fill="#FFFFFF"/g) || [];
-      expect(filledCircleMatches.length).toBe(totalDays + 2);
+      expect(filledCircleMatches.length).toBe((totalDays - 1) + 2);
       
-      // No empty day circles
+      // 1 empty circle for the current day (Dec 31st)
       const emptyDayCircles = (svg.match(/<circle[^>]*fill="none"[^>]*stroke="#404040"/g) || []).length;
-      expect(emptyDayCircles).toBe(0);
+      expect(emptyDayCircles).toBe(1);
     });
   });
 });

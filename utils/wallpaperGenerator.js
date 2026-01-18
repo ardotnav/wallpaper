@@ -1,4 +1,4 @@
-const { getDayOfYear, getTotalDaysInYear, getYearProgress } = require('./dateUtils');
+const { getCompletedDays, getTotalDaysInYear, getYearProgress } = require('./dateUtils');
 
 // Default configuration
 const DEFAULT_CONFIG = {
@@ -184,7 +184,7 @@ function generatePercentageText(percentage, centerX, centerY, height, color) {
 function generateSVG(date, config = {}) {
   const cfg = { ...DEFAULT_CONFIG, ...config };
   const year = date.getFullYear();
-  const dayOfYear = getDayOfYear(date);
+  const completedDays = getCompletedDays(date);
   const totalDays = getTotalDaysInYear(year);
   const yearProgress = getYearProgress(date);
   
@@ -203,11 +203,11 @@ function generateSVG(date, config = {}) {
       const y = layout.startY + row * layout.circleSpacing + layout.circleSpacing / 2;
 
       if (dayNumber <= totalDays) {
-        if (dayNumber <= dayOfYear) {
-          // Filled circle for passed days - slightly smaller for aesthetic
+        if (dayNumber <= completedDays) {
+          // Filled circle for completed days
           svg += `<circle cx="${x}" cy="${y}" r="${layout.circleRadius}" fill="${cfg.filledCircleColor}"/>`;
         } else {
-          // Empty circle for future days
+          // Empty circle for current and future days
           svg += `<circle cx="${x}" cy="${y}" r="${layout.circleRadius}" fill="none" stroke="${cfg.emptyCircleColor}" stroke-width="${cfg.strokeWidth}"/>`;
         }
       }

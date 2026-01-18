@@ -1,8 +1,9 @@
 const { generateSVG } = require('../utils/wallpaperGenerator');
+const { getIndiaDate } = require('../utils/dateUtils');
 
 module.exports = async (req, res) => {
   try {
-    const now = new Date();
+    const now = getIndiaDate();
     const svg = generateSVG(now);
 
     // Convert SVG to PNG using sharp
