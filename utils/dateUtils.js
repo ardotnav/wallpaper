@@ -35,7 +35,7 @@ function isLeapYear(year) {
 function getYearProgress(date) {
   const completedDays = getCompletedDays(date);
   const totalDays = isLeapYear(date.getFullYear()) ? 366 : 365;
-  return ((completedDays / totalDays) * 100).toFixed(1);
+  return ((completedDays / totalDays) * 100).toFixed(2);
 }
 
 // Get total days in a year

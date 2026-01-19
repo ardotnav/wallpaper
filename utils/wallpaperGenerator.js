@@ -1,20 +1,18 @@
 const { getCompletedDays, getTotalDaysInYear, getYearProgress } = require('./dateUtils');
 
-// Default configuration
+// Default configuration - grid expands to fill more space
 const DEFAULT_CONFIG = {
   width: 1170,
   height: 2532,
   cols: 14,  // 2 weeks per row
-  topPadding: 500,  // Space for status bar + date + time
-  sidePadding: 100,  // Side margins
-  percentageSpace: 120,  // Space between grid and percentage text
-  bottomPadding: 350,  // Space for widgets + home indicator (below percentage)
-  circleRadiusMultiplier: 0.32,
-  backgroundColor: '#000000',
+  topPadding: 420,
+  sidePadding: 320,
+  percentageSpace: 80,
+  bottomPadding: 360,
+  backgroundColor: '#0A1628',  // Darker blue
   filledCircleColor: '#FFFFFF',
-  emptyCircleColor: '#404040',  // Subtle but visible
+  emptyCircleColor: '#333333',
   textColor: '#FFFFFF',
-  strokeWidth: 1.5,
 };
 
 /**
@@ -24,26 +22,30 @@ function calculateGridLayout(totalDays, config = {}) {
   const cfg = { ...DEFAULT_CONFIG, ...config };
   const rows = Math.ceil(totalDays / cfg.cols);
   
-  // Calculate available space (reserve space for percentage text)
+  // Calculate available space
   const gridWidth = cfg.width - (cfg.sidePadding * 2);
   const gridHeight = cfg.height - cfg.topPadding - cfg.percentageSpace - cfg.bottomPadding;
   
-  // Calculate spacing based on available space
+  // Use horizontal spacing to fill the width (1/3 of screen)
   const cellWidth = gridWidth / cfg.cols;
   const cellHeight = gridHeight / rows;
-  const circleSpacing = Math.min(cellWidth, cellHeight);
-  const circleRadius = circleSpacing * cfg.circleRadiusMultiplier;
   
-  // Center the grid in the available space (grid area only, not including percentage)
-  const totalGridWidth = cfg.cols * circleSpacing;
-  const totalGridHeight = rows * circleSpacing;
+  // Separate horizontal and vertical spacing
+  const horizontalSpacing = cellWidth;
+  const verticalSpacing = cellHeight;
+  const circleRadius = Math.min(horizontalSpacing, verticalSpacing) * cfg.circleRadiusMultiplier;
+  
+  // Center the grid
+  const totalGridWidth = cfg.cols * horizontalSpacing;
+  const totalGridHeight = rows * verticalSpacing;
   const startX = cfg.sidePadding + (gridWidth - totalGridWidth) / 2;
   const startY = cfg.topPadding + (gridHeight - totalGridHeight) / 2;
   
   return {
     rows,
     cols: cfg.cols,
-    circleSpacing,
+    horizontalSpacing,
+    verticalSpacing,
     circleRadius,
     startX,
     startY,
@@ -52,15 +54,16 @@ function calculateGridLayout(totalDays, config = {}) {
 }
 
 /**
- * Draw a single digit using simple rectangles (7-segment style)
+ * Draw a digit using clean, rounded pill shapes
+ * Modern, minimal aesthetic
  */
 function drawDigit(digit, x, y, width, height, color) {
   const w = width;
   const h = height;
-  const t = Math.max(width * 0.16, 7); // segment thickness
-  const g = t * 0.2; // gap
+  const t = width * 0.18; // segment thickness
+  const g = t * 0.4; // gap between segments
+  const r = t / 2; // fully rounded
   
-  // Segment positions: top, top-left, top-right, middle, bottom-left, bottom-right, bottom
   const segments = {
     '0': [1, 1, 1, 0, 1, 1, 1],
     '1': [0, 0, 1, 0, 0, 1, 0],
@@ -78,22 +81,21 @@ function drawDigit(digit, x, y, width, height, color) {
   if (!seg) return '';
   
   let svg = '';
-  const r = t / 2.5; // corner radius
   
-  // Top horizontal
-  if (seg[0]) svg += `<rect x="${x + t}" y="${y}" width="${w - 2*t}" height="${t}" fill="${color}" rx="${r}"/>`;
-  // Top-left vertical
-  if (seg[1]) svg += `<rect x="${x}" y="${y + t + g}" width="${t}" height="${h/2 - t - g*2}" fill="${color}" rx="${r}"/>`;
-  // Top-right vertical
-  if (seg[2]) svg += `<rect x="${x + w - t}" y="${y + t + g}" width="${t}" height="${h/2 - t - g*2}" fill="${color}" rx="${r}"/>`;
-  // Middle horizontal
-  if (seg[3]) svg += `<rect x="${x + t}" y="${y + h/2 - t/2}" width="${w - 2*t}" height="${t}" fill="${color}" rx="${r}"/>`;
-  // Bottom-left vertical
-  if (seg[4]) svg += `<rect x="${x}" y="${y + h/2 + g}" width="${t}" height="${h/2 - t - g*2}" fill="${color}" rx="${r}"/>`;
-  // Bottom-right vertical
-  if (seg[5]) svg += `<rect x="${x + w - t}" y="${y + h/2 + g}" width="${t}" height="${h/2 - t - g*2}" fill="${color}" rx="${r}"/>`;
-  // Bottom horizontal
-  if (seg[6]) svg += `<rect x="${x + t}" y="${y + h - t}" width="${w - 2*t}" height="${t}" fill="${color}" rx="${r}"/>`;
+  // Horizontal segments
+  const hLen = w - 2 * t - 2 * g;
+  const hX = x + t + g;
+  
+  // Vertical segments  
+  const vLen = h / 2 - t - g * 1.5;
+  
+  if (seg[0]) svg += `<rect x="${hX}" y="${y}" width="${hLen}" height="${t}" fill="${color}" rx="${r}"/>`;
+  if (seg[1]) svg += `<rect x="${x}" y="${y + t + g}" width="${t}" height="${vLen}" fill="${color}" rx="${r}"/>`;
+  if (seg[2]) svg += `<rect x="${x + w - t}" y="${y + t + g}" width="${t}" height="${vLen}" fill="${color}" rx="${r}"/>`;
+  if (seg[3]) svg += `<rect x="${hX}" y="${y + h/2 - t/2}" width="${hLen}" height="${t}" fill="${color}" rx="${r}"/>`;
+  if (seg[4]) svg += `<rect x="${x}" y="${y + h/2 + g}" width="${t}" height="${vLen}" fill="${color}" rx="${r}"/>`;
+  if (seg[5]) svg += `<rect x="${x + w - t}" y="${y + h/2 + g}" width="${t}" height="${vLen}" fill="${color}" rx="${r}"/>`;
+  if (seg[6]) svg += `<rect x="${hX}" y="${y + h - t}" width="${hLen}" height="${t}" fill="${color}" rx="${r}"/>`;
   
   return svg;
 }
@@ -102,59 +104,47 @@ function drawDigit(digit, x, y, width, height, color) {
  * Draw a decimal point
  */
 function drawDot(x, y, size, color) {
-  return `<rect x="${x}" y="${y}" width="${size}" height="${size}" fill="${color}" rx="${size/3}"/>`;
+  return `<circle cx="${x}" cy="${y}" r="${size/2}" fill="${color}"/>`;
 }
 
 /**
- * Draw a percent sign using two circles and a diagonal line
+ * Draw percent sign - two small circles and a diagonal
  */
 function drawPercent(x, y, width, height, color) {
-  const circleR = height * 0.14;  // Radius of the small circles
-  const strokeW = Math.max(height * 0.1, 5);  // Line thickness
+  const circleR = height * 0.12;
+  const strokeW = height * 0.12;
+  const padding = circleR + strokeW/2;
   
   let svg = '';
-  
-  // Top-left small circle (filled)
-  const topCircleX = x + circleR + strokeW/2;
-  const topCircleY = y + circleR + strokeW/2;
-  svg += `<circle cx="${topCircleX}" cy="${topCircleY}" r="${circleR}" fill="${color}"/>`;
-  
-  // Bottom-right small circle (filled)
-  const bottomCircleX = x + width - circleR - strokeW/2;
-  const bottomCircleY = y + height - circleR - strokeW/2;
-  svg += `<circle cx="${bottomCircleX}" cy="${bottomCircleY}" r="${circleR}" fill="${color}"/>`;
-  
-  // Diagonal line from top-right to bottom-left
-  const lineX1 = x + width - strokeW;
-  const lineY1 = y + strokeW;
-  const lineX2 = x + strokeW;
-  const lineY2 = y + height - strokeW;
-  svg += `<line x1="${lineX1}" y1="${lineY1}" x2="${lineX2}" y2="${lineY2}" stroke="${color}" stroke-width="${strokeW}" stroke-linecap="round"/>`;
+  svg += `<circle cx="${x + padding}" cy="${y + padding}" r="${circleR}" fill="${color}"/>`;
+  svg += `<circle cx="${x + width - padding}" cy="${y + height - padding}" r="${circleR}" fill="${color}"/>`;
+  svg += `<line x1="${x + width - strokeW}" y1="${y + strokeW}" x2="${x + strokeW}" y2="${y + height - strokeW}" stroke="${color}" stroke-width="${strokeW}" stroke-linecap="round"/>`;
   
   return svg;
 }
 
 /**
- * Generate SVG for percentage text using simple shapes (no fonts needed)
+ * Generate percentage display using shapes
  */
 function generatePercentageText(percentage, centerX, centerY, height, color) {
   const text = String(percentage);
-  const digitWidth = height * 0.5;
-  const digitSpacing = digitWidth * 1.2;
-  const dotWidth = height * 0.18;
-  const percentWidth = height * 0.6;
-  const gap = height * 0.15; // Gap before % sign
+  const digitW = height * 0.55;
+  const digitGap = height * 0.15;
+  const dotSize = height * 0.15;
+  const percentW = height * 0.55;
+  const percentGap = height * 0.2;
   
-  // Calculate character widths
+  // Calculate total width
   let totalWidth = 0;
   for (const char of text) {
     if (char === '.') {
-      totalWidth += dotWidth + digitSpacing * 0.2;
+      totalWidth += dotSize + digitGap * 0.5;
     } else {
-      totalWidth += digitSpacing;
+      totalWidth += digitW + digitGap;
     }
   }
-  totalWidth += gap + percentWidth; // Gap + % sign
+  totalWidth += percentGap + percentW;
+  totalWidth -= digitGap; // Remove trailing gap
   
   let currentX = centerX - totalWidth / 2;
   const topY = centerY - height / 2;
@@ -163,23 +153,23 @@ function generatePercentageText(percentage, centerX, centerY, height, color) {
   
   for (const char of text) {
     if (char === '.') {
-      svg += drawDot(currentX, topY + height - dotWidth - 4, dotWidth, color);
-      currentX += dotWidth + digitSpacing * 0.2;
+      svg += drawDot(currentX + dotSize/2, topY + height - dotSize/2, dotSize, color);
+      currentX += dotSize + digitGap * 0.5;
     } else if (char >= '0' && char <= '9') {
-      svg += drawDigit(char, currentX, topY, digitWidth, height, color);
-      currentX += digitSpacing;
+      svg += drawDigit(char, currentX, topY, digitW, height, color);
+      currentX += digitW + digitGap;
     }
   }
   
-  // Draw percent sign with gap
-  currentX += gap;
-  svg += drawPercent(currentX, topY, percentWidth, height, color);
+  currentX += percentGap - digitGap;
+  svg += drawPercent(currentX, topY, percentW, height, color);
   
   return svg;
 }
 
 /**
  * Generate SVG markup for the wallpaper
+ * Clean, minimal design
  */
 function generateSVG(date, config = {}) {
   const cfg = { ...DEFAULT_CONFIG, ...config };
@@ -192,34 +182,47 @@ function generateSVG(date, config = {}) {
   
   let svg = `<svg width="${cfg.width}" height="${cfg.height}" xmlns="http://www.w3.org/2000/svg">`;
   
-  // Dark background
+  // Pure black background
   svg += `<rect width="${cfg.width}" height="${cfg.height}" fill="${cfg.backgroundColor}"/>`;
   
-  // Draw circles for each day
+  // Draw grid squares for each day - math notebook style
+  // Use uniform spacing (smaller of the two) for both directions
+  const uniformSpacing = Math.min(layout.horizontalSpacing, layout.verticalSpacing);
+  const boxSize = uniformSpacing * 0.88; // Bigger boxes
+  const gap = uniformSpacing - boxSize;
+  const strokeWidth = 1;
+  
+  // Recalculate start positions for uniform grid centered in available space
+  const totalGridWidth = layout.cols * uniformSpacing;
+  const totalGridHeight = layout.rows * uniformSpacing;
+  const gridStartX = (cfg.width - totalGridWidth) / 2;
+  const gridStartY = cfg.topPadding + (cfg.height - cfg.topPadding - cfg.percentageSpace - cfg.bottomPadding - totalGridHeight) / 2;
+  
   for (let row = 0; row < layout.rows; row++) {
     for (let col = 0; col < layout.cols; col++) {
       const dayNumber = row * layout.cols + col + 1;
-      const x = layout.startX + col * layout.circleSpacing + layout.circleSpacing / 2;
-      const y = layout.startY + row * layout.circleSpacing + layout.circleSpacing / 2;
+      const x = gridStartX + col * uniformSpacing + gap / 2;
+      const y = gridStartY + row * uniformSpacing + gap / 2;
 
       if (dayNumber <= totalDays) {
         if (dayNumber <= completedDays) {
-          // Filled circle for completed days
-          svg += `<circle cx="${x}" cy="${y}" r="${layout.circleRadius}" fill="${cfg.filledCircleColor}"/>`;
+          // Filled square for completed days
+          svg += `<rect x="${x}" y="${y}" width="${boxSize}" height="${boxSize}" fill="${cfg.filledCircleColor}"/>`;
         } else {
-          // Empty circle for current and future days
-          svg += `<circle cx="${x}" cy="${y}" r="${layout.circleRadius}" fill="none" stroke="${cfg.emptyCircleColor}" stroke-width="${cfg.strokeWidth}"/>`;
+          // Empty square with border for future days
+          svg += `<rect x="${x}" y="${y}" width="${boxSize}" height="${boxSize}" fill="none" stroke="${cfg.emptyCircleColor}" stroke-width="${strokeWidth}"/>`;
         }
       }
     }
   }
-
-  // Draw year percentage centered in the space between grid and bottom widgets
-  const textHeight = 55;
-  const gridBottom = layout.startY + layout.rows * layout.circleSpacing;
-  const textY = gridBottom + cfg.percentageSpace / 2;  // Center in percentage space
   
-  svg += generatePercentageText(yearProgress, cfg.width / 2, textY, textHeight, cfg.textColor);
+  // Update gridBottom for percentage positioning
+  const gridBottomNew = gridStartY + layout.rows * uniformSpacing;
+
+  // Year percentage - clean typography, centered below grid
+  const fontSize = 48;
+  const textY = gridBottomNew + cfg.percentageSpace / 2;
+  svg += generatePercentageText(yearProgress, cfg.width / 2, textY, fontSize, cfg.textColor);
   
   svg += `</svg>`;
   
