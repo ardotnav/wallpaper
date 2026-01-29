@@ -1,4 +1,5 @@
-const { getCompletedDays, getTotalDaysInYear, getYearProgress, getMonthEndDays } = require('./dateUtils');
+const { getCompletedDays, getTotalDaysInYear, getYearProgress, getMonthEndDays, getDayOfYear } = require('./dateUtils');
+const { getQuoteForDay } = require('./quotes');
 
 // Default configuration - grid expands to fill more space
 const DEFAULT_CONFIG = {
@@ -8,11 +9,13 @@ const DEFAULT_CONFIG = {
   topPadding: 420,
   sidePadding: 320,
   percentageSpace: 80,
-  bottomPadding: 360,
+  quoteSpace: 120,
+  bottomPadding: 240,
   backgroundColor: '#0A1628',  // Darker blue
   filledCircleColor: '#FFFFFF',
   emptyCircleColor: '#333333',
   textColor: '#FFFFFF',
+  quoteColor: '#888888',
 };
 
 /**
@@ -22,9 +25,9 @@ function calculateGridLayout(totalDays, config = {}) {
   const cfg = { ...DEFAULT_CONFIG, ...config };
   const rows = Math.ceil(totalDays / cfg.cols);
   
-  // Calculate available space
+  // Calculate available space (now accounting for quote space)
   const gridWidth = cfg.width - (cfg.sidePadding * 2);
-  const gridHeight = cfg.height - cfg.topPadding - cfg.percentageSpace - cfg.bottomPadding;
+  const gridHeight = cfg.height - cfg.topPadding - cfg.percentageSpace - cfg.quoteSpace - cfg.bottomPadding;
   
   // Use horizontal spacing to fill the width (1/3 of screen)
   const cellWidth = gridWidth / cfg.cols;
@@ -200,6 +203,59 @@ function drawPercent(x, y, width, height, color) {
 }
 
 /**
+ * Generate quote text with word wrapping
+ * Uses SVG text elements with system fonts for reliable rendering with sharp
+ */
+function generateQuoteText(quote, centerX, centerY, fontSize, maxWidth, color) {
+  // Estimate characters per line (rough approximation)
+  const charsPerLine = Math.floor(maxWidth / (fontSize * 0.5));
+  
+  // Split quote into words and wrap lines
+  const words = quote.split(' ');
+  const lines = [];
+  let currentLine = '';
+  
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    if (testLine.length <= charsPerLine) {
+      currentLine = testLine;
+    } else {
+      if (currentLine) lines.push(currentLine);
+      currentLine = word;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+  
+  // Calculate total height and starting Y position to center vertically
+  const lineHeight = fontSize * 1.4;
+  const totalHeight = lines.length * lineHeight;
+  const startY = centerY - totalHeight / 2 + fontSize / 2;
+  
+  let svg = '';
+  
+  // Add each line centered horizontally
+  // Use DejaVu Sans which is available on most systems including Vercel
+  lines.forEach((line, index) => {
+    const y = startY + index * lineHeight;
+    svg += `<text x="${centerX}" y="${y}" font-family="DejaVu Sans, Helvetica, Arial, sans-serif" font-size="${fontSize}" fill="${color}" text-anchor="middle" font-weight="normal">${escapeXml(line)}</text>`;
+  });
+  
+  return svg;
+}
+
+/**
+ * Escape special XML characters in text
+ */
+function escapeXml(text) {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+/**
  * Generate percentage display using shapes
  */
 function generatePercentageText(percentage, centerX, centerY, height, color) {
@@ -272,7 +328,7 @@ function generateSVG(date, config = {}) {
   const totalGridWidth = layout.cols * uniformSpacing;
   const totalGridHeight = layout.rows * uniformSpacing;
   const gridStartX = (cfg.width - totalGridWidth) / 2;
-  const gridStartY = cfg.topPadding + (cfg.height - cfg.topPadding - cfg.percentageSpace - cfg.bottomPadding - totalGridHeight) / 2;
+  const gridStartY = cfg.topPadding + (cfg.height - cfg.topPadding - cfg.percentageSpace - cfg.quoteSpace - cfg.bottomPadding - totalGridHeight) / 2;
   
   // Get month-end days mapping
   const monthEndDays = getMonthEndDays(year);
@@ -318,6 +374,15 @@ function generateSVG(date, config = {}) {
   const fontSize = 48;
   const textY = gridBottomNew + cfg.percentageSpace / 2;
   svg += generatePercentageText(yearProgress, cfg.width / 2, textY, fontSize, cfg.textColor);
+  
+  // Daily motivational quote - centered below percentage
+  const dayOfYear = getDayOfYear(date);
+  const quote = getQuoteForDay(dayOfYear);
+  const quoteY = gridBottomNew + cfg.percentageSpace + cfg.quoteSpace / 2;
+  const quoteFontSize = 28;
+  const maxQuoteWidth = cfg.width - 100; // 50px padding on each side
+  
+  svg += generateQuoteText(quote, cfg.width / 2, quoteY, quoteFontSize, maxQuoteWidth, cfg.quoteColor);
   
   svg += `</svg>`;
   
