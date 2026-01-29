@@ -1,5 +1,6 @@
 const { getCompletedDays, getTotalDaysInYear, getYearProgress, getMonthEndDays, getDayOfYear } = require('./dateUtils');
 const { getQuoteForDay } = require('./quotes');
+const { renderText, getCharWidth } = require('./letterShapes');
 
 // Default configuration - grid expands to fill more space
 const DEFAULT_CONFIG = {
@@ -203,21 +204,30 @@ function drawPercent(x, y, width, height, color) {
 }
 
 /**
- * Generate quote text with word wrapping
- * Uses SVG text elements with system fonts for reliable rendering with sharp
+ * Generate quote text with word wrapping using shape-based rendering
+ * No fonts required - works universally
  */
 function generateQuoteText(quote, centerX, centerY, fontSize, maxWidth, color) {
-  // Estimate characters per line (rough approximation)
-  const charsPerLine = Math.floor(maxWidth / (fontSize * 0.5));
+  const letterHeight = fontSize * 0.85;
+  const letterSpacing = fontSize * 0.08;
   
-  // Split quote into words and wrap lines
+  // Calculate line width for a given text
+  const getLineWidth = (text) => {
+    let width = 0;
+    for (const char of text) {
+      width += getCharWidth(char, letterHeight) + letterSpacing;
+    }
+    return width - letterSpacing;
+  };
+  
+  // Split quote into words and wrap lines based on actual rendered width
   const words = quote.split(' ');
   const lines = [];
   let currentLine = '';
   
   for (const word of words) {
     const testLine = currentLine ? `${currentLine} ${word}` : word;
-    if (testLine.length <= charsPerLine) {
+    if (getLineWidth(testLine) <= maxWidth) {
       currentLine = testLine;
     } else {
       if (currentLine) lines.push(currentLine);
@@ -227,17 +237,16 @@ function generateQuoteText(quote, centerX, centerY, fontSize, maxWidth, color) {
   if (currentLine) lines.push(currentLine);
   
   // Calculate total height and starting Y position to center vertically
-  const lineHeight = fontSize * 1.4;
+  const lineHeight = letterHeight * 1.5;
   const totalHeight = lines.length * lineHeight;
-  const startY = centerY - totalHeight / 2 + fontSize / 2;
+  const startY = centerY - totalHeight / 2;
   
   let svg = '';
   
-  // Add each line centered horizontally
-  // Use DejaVu Sans which is available on most systems including Vercel
+  // Render each line centered horizontally using shape-based text
   lines.forEach((line, index) => {
     const y = startY + index * lineHeight;
-    svg += `<text x="${centerX}" y="${y}" font-family="DejaVu Sans, Helvetica, Arial, sans-serif" font-size="${fontSize}" fill="${color}" text-anchor="middle" font-weight="normal">${escapeXml(line)}</text>`;
+    svg += renderText(line, centerX, y, letterHeight, color, letterSpacing);
   });
   
   return svg;
