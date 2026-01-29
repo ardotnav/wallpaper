@@ -1,4 +1,4 @@
-const { getCompletedDays, getTotalDaysInYear, getYearProgress } = require('./dateUtils');
+const { getCompletedDays, getTotalDaysInYear, getYearProgress, getMonthEndDays } = require('./dateUtils');
 
 // Default configuration - grid expands to fill more space
 const DEFAULT_CONFIG = {
@@ -108,6 +108,82 @@ function drawDot(x, y, size, color) {
 }
 
 /**
+ * Draw a letter using simple geometric shapes
+ * Letters: j, f, m, a, s, o, n, d (month initials)
+ */
+function drawLetter(letter, x, y, size, color) {
+  const s = size;
+  const t = s * 0.2; // stroke thickness
+  const r = t / 2;   // corner radius
+  
+  let svg = '';
+  
+  switch (letter) {
+    case 'j':
+      // J shape: horizontal top + vertical right + curved bottom
+      svg += `<rect x="${x + s*0.3}" y="${y}" width="${s*0.5}" height="${t}" fill="${color}" rx="${r}"/>`;
+      svg += `<rect x="${x + s*0.5 - t/2}" y="${y}" width="${t}" height="${s*0.75}" fill="${color}" rx="${r}"/>`;
+      svg += `<rect x="${x + s*0.15}" y="${y + s*0.7}" width="${s*0.35 + t/2}" height="${t}" fill="${color}" rx="${r}"/>`;
+      svg += `<rect x="${x + s*0.15}" y="${y + s*0.5}" width="${t}" height="${s*0.2 + t}" fill="${color}" rx="${r}"/>`;
+      break;
+    case 'f':
+      // F shape: vertical left + horizontal top + horizontal middle
+      svg += `<rect x="${x + s*0.2}" y="${y}" width="${t}" height="${s}" fill="${color}" rx="${r}"/>`;
+      svg += `<rect x="${x + s*0.2}" y="${y}" width="${s*0.6}" height="${t}" fill="${color}" rx="${r}"/>`;
+      svg += `<rect x="${x + s*0.2}" y="${y + s*0.45}" width="${s*0.45}" height="${t}" fill="${color}" rx="${r}"/>`;
+      break;
+    case 'm':
+      // M shape: two verticals + two diagonals meeting in middle
+      svg += `<rect x="${x + s*0.1}" y="${y}" width="${t}" height="${s}" fill="${color}" rx="${r}"/>`;
+      svg += `<rect x="${x + s*0.9 - t}" y="${y}" width="${t}" height="${s}" fill="${color}" rx="${r}"/>`;
+      svg += `<polygon points="${x + s*0.1},${y} ${x + s*0.1 + t},${y} ${x + s*0.5 + t/2},${y + s*0.5} ${x + s*0.5 - t/2},${y + s*0.5}" fill="${color}"/>`;
+      svg += `<polygon points="${x + s*0.9 - t},${y} ${x + s*0.9},${y} ${x + s*0.5 + t/2},${y + s*0.5} ${x + s*0.5 - t/2},${y + s*0.5}" fill="${color}"/>`;
+      break;
+    case 'a':
+      // A shape: triangle top + horizontal middle + two legs
+      svg += `<rect x="${x + s*0.1}" y="${y + s*0.3}" width="${t}" height="${s*0.7}" fill="${color}" rx="${r}"/>`;
+      svg += `<rect x="${x + s*0.9 - t}" y="${y + s*0.3}" width="${t}" height="${s*0.7}" fill="${color}" rx="${r}"/>`;
+      svg += `<rect x="${x + s*0.1}" y="${y + s*0.55}" width="${s*0.8}" height="${t}" fill="${color}" rx="${r}"/>`;
+      svg += `<rect x="${x + s*0.3}" y="${y}" width="${s*0.4}" height="${t}" fill="${color}" rx="${r}"/>`;
+      svg += `<rect x="${x + s*0.1}" y="${y + s*0.15}" width="${s*0.25}" height="${t}" fill="${color}" rx="${r}"/>`;
+      svg += `<rect x="${x + s*0.65}" y="${y + s*0.15}" width="${s*0.25}" height="${t}" fill="${color}" rx="${r}"/>`;
+      break;
+    case 's':
+      // S shape: three horizontal bars + two connectors
+      svg += `<rect x="${x + s*0.2}" y="${y}" width="${s*0.6}" height="${t}" fill="${color}" rx="${r}"/>`;
+      svg += `<rect x="${x + s*0.2}" y="${y + s*0.45}" width="${s*0.6}" height="${t}" fill="${color}" rx="${r}"/>`;
+      svg += `<rect x="${x + s*0.2}" y="${y + s - t}" width="${s*0.6}" height="${t}" fill="${color}" rx="${r}"/>`;
+      svg += `<rect x="${x + s*0.2}" y="${y}" width="${t}" height="${s*0.45 + t}" fill="${color}" rx="${r}"/>`;
+      svg += `<rect x="${x + s*0.8 - t}" y="${y + s*0.45}" width="${t}" height="${s*0.55}" fill="${color}" rx="${r}"/>`;
+      break;
+    case 'o':
+      // O shape: rectangle outline
+      svg += `<rect x="${x + s*0.15}" y="${y}" width="${s*0.7}" height="${t}" fill="${color}" rx="${r}"/>`;
+      svg += `<rect x="${x + s*0.15}" y="${y + s - t}" width="${s*0.7}" height="${t}" fill="${color}" rx="${r}"/>`;
+      svg += `<rect x="${x + s*0.15}" y="${y}" width="${t}" height="${s}" fill="${color}" rx="${r}"/>`;
+      svg += `<rect x="${x + s*0.85 - t}" y="${y}" width="${t}" height="${s}" fill="${color}" rx="${r}"/>`;
+      break;
+    case 'n':
+      // N shape: two verticals + diagonal
+      svg += `<rect x="${x + s*0.15}" y="${y}" width="${t}" height="${s}" fill="${color}" rx="${r}"/>`;
+      svg += `<rect x="${x + s*0.85 - t}" y="${y}" width="${t}" height="${s}" fill="${color}" rx="${r}"/>`;
+      svg += `<polygon points="${x + s*0.15},${y} ${x + s*0.15 + t},${y} ${x + s*0.85},${y + s} ${x + s*0.85 - t},${y + s}" fill="${color}"/>`;
+      break;
+    case 'd':
+      // D shape: vertical left + curved right
+      svg += `<rect x="${x + s*0.2}" y="${y}" width="${t}" height="${s}" fill="${color}" rx="${r}"/>`;
+      svg += `<rect x="${x + s*0.2}" y="${y}" width="${s*0.45}" height="${t}" fill="${color}" rx="${r}"/>`;
+      svg += `<rect x="${x + s*0.2}" y="${y + s - t}" width="${s*0.45}" height="${t}" fill="${color}" rx="${r}"/>`;
+      svg += `<rect x="${x + s*0.65}" y="${y + s*0.15}" width="${t}" height="${s*0.7}" fill="${color}" rx="${r}"/>`;
+      svg += `<rect x="${x + s*0.55}" y="${y}" width="${t}" height="${s*0.2}" fill="${color}" rx="${r}"/>`;
+      svg += `<rect x="${x + s*0.55}" y="${y + s*0.8}" width="${t}" height="${s*0.2}" fill="${color}" rx="${r}"/>`;
+      break;
+  }
+  
+  return svg;
+}
+
+/**
  * Draw percent sign - two small circles and a diagonal
  */
 function drawPercent(x, y, width, height, color) {
@@ -198,6 +274,10 @@ function generateSVG(date, config = {}) {
   const gridStartX = (cfg.width - totalGridWidth) / 2;
   const gridStartY = cfg.topPadding + (cfg.height - cfg.topPadding - cfg.percentageSpace - cfg.bottomPadding - totalGridHeight) / 2;
   
+  // Get month-end days mapping
+  const monthEndDays = getMonthEndDays(year);
+  const letterSize = boxSize * 0.55;
+
   for (let row = 0; row < layout.rows; row++) {
     for (let col = 0; col < layout.cols; col++) {
       const dayNumber = row * layout.cols + col + 1;
@@ -205,12 +285,27 @@ function generateSVG(date, config = {}) {
       const y = gridStartY + row * uniformSpacing + gap / 2;
 
       if (dayNumber <= totalDays) {
-        if (dayNumber <= completedDays) {
+        const isCompleted = dayNumber <= completedDays;
+        const monthLetter = monthEndDays[dayNumber];
+        
+        if (isCompleted) {
           // Filled square for completed days
           svg += `<rect x="${x}" y="${y}" width="${boxSize}" height="${boxSize}" fill="${cfg.filledCircleColor}"/>`;
+          // Add month letter in subtle color (barely visible)
+          if (monthLetter) {
+            const letterX = x + (boxSize - letterSize) / 2;
+            const letterY = y + (boxSize - letterSize) / 2;
+            svg += drawLetter(monthLetter, letterX, letterY, letterSize, '#e0e0e0');
+          }
         } else {
           // Empty square with border for future days
           svg += `<rect x="${x}" y="${y}" width="${boxSize}" height="${boxSize}" fill="none" stroke="${cfg.emptyCircleColor}" stroke-width="${strokeWidth}"/>`;
+          // Add month letter in subtle color (barely visible)
+          if (monthLetter) {
+            const letterX = x + (boxSize - letterSize) / 2;
+            const letterY = y + (boxSize - letterSize) / 2;
+            svg += drawLetter(monthLetter, letterX, letterY, letterSize, '#1a2a3d');
+          }
         }
       }
     }

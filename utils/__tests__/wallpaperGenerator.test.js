@@ -9,8 +9,8 @@ describe('wallpaperGenerator', () => {
       
       expect(layout.rows).toBe(27); // Math.ceil(365/14) = 27
       expect(layout.cols).toBe(14);
-      expect(layout.circleSpacing).toBeGreaterThan(0);
-      expect(layout.circleRadius).toBeGreaterThan(0);
+      expect(layout.horizontalSpacing).toBeGreaterThan(0);
+      expect(layout.verticalSpacing).toBeGreaterThan(0);
       expect(layout.startX).toBeGreaterThan(0);
       expect(layout.startY).toBeGreaterThan(0);
     });
@@ -63,36 +63,36 @@ describe('wallpaperGenerator', () => {
       expect(svg).toContain(`fill="${DEFAULT_CONFIG.backgroundColor}"`);
     });
 
-    test('should include circles for all days', () => {
+    test('should include rectangles for all days', () => {
       const date = new Date(2024, 0, 15);
       const svg = generateSVG(date);
       const totalDays = getTotalDaysInYear(2024);
       
-      // Count circle elements - includes day circles plus percent sign circles
-      const circleMatches = svg.match(/<circle/g);
-      expect(circleMatches).not.toBeNull();
-      // Should have at least totalDays circles (plus some for percent sign)
-      expect(circleMatches.length).toBeGreaterThanOrEqual(totalDays);
+      // Count rect elements - includes day squares plus background plus digit segments
+      const rectMatches = svg.match(/<rect/g);
+      expect(rectMatches).not.toBeNull();
+      // Should have at least totalDays rectangles (plus background and digit segments)
+      expect(rectMatches.length).toBeGreaterThanOrEqual(totalDays);
     });
 
-    test('should have filled circles for completed days', () => {
+    test('should have filled rectangles for completed days', () => {
       const date = new Date(2024, 0, 15); // Day 15, so 14 days completed
       const svg = generateSVG(date);
       
-      // Count filled circles (circle elements with fill="#FFFFFF")
-      // Includes 14 completed day circles + 2 circles from the % sign
-      const filledCircleMatches = svg.match(/<circle[^>]*fill="#FFFFFF"/g) || [];
-      expect(filledCircleMatches.length).toBe(14 + 2); // 14 completed days + 2 from % sign
+      // Count filled rectangles (includes completed days + digit segments for percentage)
+      const filledRectMatches = svg.match(/<rect[^>]*fill="#FFFFFF"[^>]*\/>/g) || [];
+      // Should have at least 14 completed days (plus some digit segments)
+      expect(filledRectMatches.length).toBeGreaterThanOrEqual(14);
     });
 
-    test('should have empty circles for current and future days', () => {
+    test('should have empty rectangles for current and future days', () => {
       const date = new Date(2024, 0, 15); // Day 15 of 366, 14 completed
       const svg = generateSVG(date);
       const totalDays = getTotalDaysInYear(2024);
       
-      // Should have empty circles for current day + future days
-      const emptyCircles = (svg.match(/<circle[^>]*fill="none"[^>]*stroke/g) || []).length;
-      expect(emptyCircles).toBeGreaterThanOrEqual(totalDays - 14);
+      // Should have empty rectangles for current day + future days
+      const emptyRects = (svg.match(/<rect[^>]*fill="none"[^>]*stroke/g) || []).length;
+      expect(emptyRects).toBeGreaterThanOrEqual(totalDays - 14);
     });
 
     test('should include year progress percentage using shapes', () => {
@@ -132,9 +132,10 @@ describe('wallpaperGenerator', () => {
       const date = new Date(2024, 0, 1); // January 1st (0 days completed)
       const svg = generateSVG(date);
       
-      // 0 filled day circles + 2 circles from % sign
-      const filledCircleMatches = svg.match(/<circle[^>]*fill="#FFFFFF"/g) || [];
-      expect(filledCircleMatches.length).toBe(0 + 2);
+      // 0 filled day rectangles, but some digit segments for percentage display
+      // All 366 day rectangles should be empty (unfilled)
+      const emptyDayRects = (svg.match(/<rect[^>]*fill="none"[^>]*stroke/g) || []).length;
+      expect(emptyDayRects).toBe(366); // All days are empty on Jan 1st
     });
 
     test('should handle year end correctly', () => {
@@ -142,13 +143,37 @@ describe('wallpaperGenerator', () => {
       const svg = generateSVG(date);
       const totalDays = getTotalDaysInYear(2024);
       
-      // All completed day circles (totalDays - 1) + 2 from % sign should be filled
-      const filledCircleMatches = svg.match(/<circle[^>]*fill="#FFFFFF"/g) || [];
-      expect(filledCircleMatches.length).toBe((totalDays - 1) + 2);
+      // All completed day rectangles (totalDays - 1) should be filled
+      // Plus some digit segments for percentage display
+      const filledRectMatches = svg.match(/<rect[^>]*fill="#FFFFFF"[^>]*\/>/g) || [];
+      expect(filledRectMatches.length).toBeGreaterThanOrEqual(totalDays - 1);
       
-      // 1 empty circle for the current day (Dec 31st)
-      const emptyDayCircles = (svg.match(/<circle[^>]*fill="none"[^>]*stroke="#404040"/g) || []).length;
-      expect(emptyDayCircles).toBe(1);
+      // 1 empty rectangle for the current day (Dec 31st)
+      const emptyDayRects = (svg.match(/<rect[^>]*fill="none"[^>]*stroke/g) || []).length;
+      expect(emptyDayRects).toBe(1);
+    });
+
+    test('should include month letters for last day of each month', () => {
+      const date = new Date(2024, 6, 15); // July 15, 2024 (leap year)
+      const svg = generateSVG(date);
+      
+      // Month letters are drawn as shapes (rects/polygons), not text
+      // Check that we have polygon elements (used for M and N letters)
+      const polygonMatches = svg.match(/<polygon/g) || [];
+      // By July 15, we've passed Jan (j), Feb (f), Mar (m), Apr (a), May (m), Jun (j)
+      // M appears twice (Mar, May) and each M has 2 polygons
+      expect(polygonMatches.length).toBeGreaterThanOrEqual(4);
+    });
+
+    test('should have shapes for 12 month letters total for the year', () => {
+      const date = new Date(2024, 11, 31); // December 31, 2024
+      const svg = generateSVG(date);
+      
+      // Month letters use polygons for M and N shapes
+      // M appears twice (Mar, May), N appears once (Nov) - each has 2 and 1 polygon respectively
+      const polygonMatches = svg.match(/<polygon/g) || [];
+      // 2 M letters * 2 polygons + 1 N letter * 1 polygon = 5 polygons minimum
+      expect(polygonMatches.length).toBeGreaterThanOrEqual(5);
     });
   });
 });

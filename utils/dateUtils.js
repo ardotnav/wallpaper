@@ -43,6 +43,23 @@ function getTotalDaysInYear(year) {
   return isLeapYear(year) ? 366 : 365;
 }
 
+// Get the last day of each month as day-of-year numbers
+// Returns an object mapping day number to month letter
+function getMonthEndDays(year) {
+  const monthDays = [31, isLeapYear(year) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  const monthLetters = ['j', 'f', 'm', 'a', 'm', 'j', 'j', 'a', 's', 'o', 'n', 'd'];
+  
+  const monthEndMap = {};
+  let dayOfYear = 0;
+  
+  for (let i = 0; i < 12; i++) {
+    dayOfYear += monthDays[i];
+    monthEndMap[dayOfYear] = monthLetters[i];
+  }
+  
+  return monthEndMap;
+}
+
 module.exports = {
   getIndiaDate,
   getDayOfYear,
@@ -50,4 +67,5 @@ module.exports = {
   isLeapYear,
   getYearProgress,
   getTotalDaysInYear,
+  getMonthEndDays,
 };

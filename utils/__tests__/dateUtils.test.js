@@ -5,6 +5,7 @@ const {
   isLeapYear,
   getYearProgress,
   getTotalDaysInYear,
+  getMonthEndDays,
 } = require('../dateUtils');
 
 describe('dateUtils', () => {
@@ -148,10 +149,51 @@ describe('dateUtils', () => {
       expect(progress).toBeCloseTo(99.7, 1);
     });
 
-    test('should return a string with one decimal place', () => {
+    test('should return a string with two decimal places', () => {
       const date = new Date(2024, 5, 15);
       const progress = getYearProgress(date);
-      expect(progress).toMatch(/^\d+\.\d$/);
+      expect(progress).toMatch(/^\d+\.\d{2}$/);
+    });
+  });
+
+  describe('getMonthEndDays', () => {
+    test('should return correct month end days for non-leap year', () => {
+      const monthEndMap = getMonthEndDays(2023);
+      
+      expect(monthEndMap[31]).toBe('j');   // January
+      expect(monthEndMap[59]).toBe('f');   // February (31 + 28)
+      expect(monthEndMap[90]).toBe('m');   // March (59 + 31)
+      expect(monthEndMap[120]).toBe('a');  // April (90 + 30)
+      expect(monthEndMap[151]).toBe('m');  // May (120 + 31)
+      expect(monthEndMap[181]).toBe('j');  // June (151 + 30)
+      expect(monthEndMap[212]).toBe('j');  // July (181 + 31)
+      expect(monthEndMap[243]).toBe('a');  // August (212 + 31)
+      expect(monthEndMap[273]).toBe('s');  // September (243 + 30)
+      expect(monthEndMap[304]).toBe('o');  // October (273 + 31)
+      expect(monthEndMap[334]).toBe('n');  // November (304 + 30)
+      expect(monthEndMap[365]).toBe('d');  // December (334 + 31)
+    });
+
+    test('should return correct month end days for leap year', () => {
+      const monthEndMap = getMonthEndDays(2024);
+      
+      expect(monthEndMap[31]).toBe('j');   // January
+      expect(monthEndMap[60]).toBe('f');   // February (31 + 29 leap year)
+      expect(monthEndMap[91]).toBe('m');   // March (60 + 31)
+      expect(monthEndMap[121]).toBe('a');  // April
+      expect(monthEndMap[152]).toBe('m');  // May
+      expect(monthEndMap[182]).toBe('j');  // June
+      expect(monthEndMap[213]).toBe('j');  // July
+      expect(monthEndMap[244]).toBe('a');  // August
+      expect(monthEndMap[274]).toBe('s');  // September
+      expect(monthEndMap[305]).toBe('o');  // October
+      expect(monthEndMap[335]).toBe('n');  // November
+      expect(monthEndMap[366]).toBe('d');  // December
+    });
+
+    test('should return exactly 12 month end days', () => {
+      const monthEndMap = getMonthEndDays(2024);
+      expect(Object.keys(monthEndMap).length).toBe(12);
     });
   });
 });
