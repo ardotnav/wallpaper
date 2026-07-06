@@ -15,7 +15,7 @@ const DEFAULT_CONFIG = {
   sidePadding: 380,
   percentageSpace: 80,
   quoteSpace: 120,
-  bottomPadding: 520,
+  bottomPadding: 280,
 
   // 'font' renders text with the bundled TTFs (Cinzel + EB Garamond);
   // 'shapes' falls back to the built-in monoline glyphs when fonts are
