@@ -1,10 +1,44 @@
+const fs = require('fs');
+const path = require('path');
 const { generateSVG } = require('../utils/wallpaperGenerator');
 const { getIndiaDate } = require('../utils/dateUtils');
+
+// Point fontconfig at the bundled Space Grotesk TTFs so sharp (librsvg/pango)
+// can render <text> on serverless machines that ship no system fonts.
+const FONT_DIR = path.join(__dirname, '..', 'assets', 'fonts');
+const FONTCONFIG_DIR = '/tmp/wallpaper-fontconfig';
+
+function setupFonts() {
+  try {
+    if (!fs.existsSync(path.join(FONT_DIR, 'SpaceGrotesk_500Medium.ttf'))) {
+      return false;
+    }
+    fs.mkdirSync(FONTCONFIG_DIR, { recursive: true });
+    fs.writeFileSync(
+      path.join(FONTCONFIG_DIR, 'fonts.conf'),
+      `<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<fontconfig>
+  <dir>${FONT_DIR}</dir>
+  <cachedir>${FONTCONFIG_DIR}/cache</cachedir>
+</fontconfig>
+`
+    );
+    process.env.FONTCONFIG_PATH = FONTCONFIG_DIR;
+    return true;
+  } catch (e) {
+    console.error('Font setup failed, falling back to shape text:', e);
+    return false;
+  }
+}
+
+// If the fonts can't be set up, fall back to the built-in shape glyphs
+const TEXT_ENGINE = setupFonts() ? 'font' : 'shapes';
 
 // Parse the optional ?accent=RRGGBB param from the raw URL so we don't
 // depend on runtime-specific helpers like req.query
 function getConfigFromRequest(req) {
-  const config = {};
+  const config = { textEngine: TEXT_ENGINE };
   try {
     const url = new URL(req.url || '/', 'http://localhost');
     const accent = url.searchParams.get('accent');

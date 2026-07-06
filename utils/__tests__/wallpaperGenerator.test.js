@@ -104,11 +104,21 @@ describe('wallpaperGenerator', () => {
       expect(svg).toContain('url(#todayGlow)');
     });
 
-    test('should include year progress percentage using shapes', () => {
+    test('should include year progress percentage as text', () => {
       const date = new Date(2024, 0, 15);
       const svg = generateSVG(date);
 
-      // Percentage and text are rendered as stroked monoline paths
+      // Percentage renders as a bold Space Grotesk <text> element
+      expect(svg).toMatch(/<text[^>]*font-weight="700"[^>]*>3\.83%<\/text>/);
+      expect(svg).toContain('Space Grotesk');
+    });
+
+    test('should fall back to monoline shape text when requested', () => {
+      const date = new Date(2024, 0, 15);
+      const svg = generateSVG(date, { textEngine: 'shapes' });
+
+      // Shape mode draws text as stroked paths and uses no <text> elements
+      expect(svg).not.toContain('<text');
       const pathMatches = svg.match(/<path/g);
       expect(pathMatches).not.toBeNull();
       expect(pathMatches.length).toBeGreaterThan(1);
@@ -167,8 +177,8 @@ describe('wallpaperGenerator', () => {
       const date = new Date(2024, 6, 15); // July 15, 2024
       const svg = generateSVG(date);
 
-      // Month letters on completed cells are stroked with the filled-cell letter color
-      const letterRe = new RegExp(`stroke="${DEFAULT_CONFIG.monthLetterOnFilled}"`, 'g');
+      // Month letters on completed cells use the filled-cell letter color
+      const letterRe = new RegExp(`<text[^>]*fill="${DEFAULT_CONFIG.monthLetterOnFilled}"`, 'g');
       // By July 15, six month-end cells (Jan-Jun) are completed
       expect((svg.match(letterRe) || []).length).toBeGreaterThanOrEqual(6);
     });

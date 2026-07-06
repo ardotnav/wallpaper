@@ -9,12 +9,16 @@ const DEFAULT_CONFIG = {
   cols: 14, // 2 weeks per row
 
   // iOS zooms wallpapers slightly (~9%) for the parallax effect, so keep
-  // content well clear of the bottom lock-screen shortcuts
-  topPadding: 400,
+  // content clear of the bottom lock-screen shortcuts
+  topPadding: 420,
   sidePadding: 320,
   percentageSpace: 80,
   quoteSpace: 120,
-  bottomPadding: 460,
+  bottomPadding: 340,
+
+  // 'font' renders text with the bundled Space Grotesk TTFs; 'shapes' falls
+  // back to the built-in monoline glyphs when the fonts are unavailable
+  textEngine: 'font',
 
   // Colors
   backgroundColor: '#0B1626',
@@ -25,7 +29,7 @@ const DEFAULT_CONFIG = {
   accentColor: '#F5B84F',         // today marker
   textColor: '#EDF1F7',
   captionColor: '#5C6D85',
-  quoteColor: '#64748C',
+  quoteColor: '#7B89A0',
   monthLetterOnFilled: '#64748B',
   monthLetterOnEmpty: '#35496D',
 };
@@ -62,18 +66,49 @@ function calculateGridLayout(totalDays, config = {}) {
 }
 
 /**
- * Word-wrap and render the quote as centered monoline text
+ * Escape special XML characters for text nodes
  */
-function generateQuoteText(quote, centerX, centerY, fontSize, maxWidth, color) {
-  const letterSpacing = fontSize * 0.12;
+function escapeXml(text) {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
 
+/**
+ * Emit an SVG <text> element set in the bundled Space Grotesk
+ */
+function svgText(text, x, y, { size, weight, fill, spacing }) {
+  const ls = spacing ? ` letter-spacing="${spacing}"` : '';
+  return `<text x="${+x.toFixed(2)}" y="${+y.toFixed(2)}" font-family="'Space Grotesk', sans-serif" font-size="${size}" font-weight="${weight}" fill="${fill}"${ls} text-anchor="middle">${escapeXml(text)}</text>`;
+}
+
+/**
+ * Rough width estimate for Space Grotesk (used only for word-wrapping)
+ */
+function estimateTextWidth(text, fontSize) {
+  let units = 0;
+  for (const ch of text) {
+    if (ch === ' ') units += 0.3;
+    else if ("iljt.,'!".includes(ch)) units += 0.3;
+    else if ('mwMW'.includes(ch)) units += 0.88;
+    else if (/[A-Z0-9]/.test(ch)) units += 0.68;
+    else units += 0.56;
+  }
+  return units * fontSize;
+}
+
+/**
+ * Word-wrap the quote into centered lines
+ */
+function wrapQuote(quote, fontSize, maxWidth, measure) {
   const words = quote.split(' ');
   const lines = [];
   let currentLine = '';
 
   for (const word of words) {
     const testLine = currentLine ? `${currentLine} ${word}` : word;
-    if (measureText(testLine, fontSize, letterSpacing) <= maxWidth) {
+    if (measure(testLine, fontSize) <= maxWidth) {
       currentLine = testLine;
     } else {
       if (currentLine) lines.push(currentLine);
@@ -81,16 +116,34 @@ function generateQuoteText(quote, centerX, centerY, fontSize, maxWidth, color) {
     }
   }
   if (currentLine) lines.push(currentLine);
+  return lines;
+}
 
-  const lineHeight = fontSize * 1.9;
-  const totalHeight = (lines.length - 1) * lineHeight + fontSize;
-  const startY = centerY - totalHeight / 2;
-
+/**
+ * Render the quote centered on (centerX, centerY)
+ */
+function generateQuoteText(quote, centerX, centerY, fontSize, maxWidth, color, useFont) {
   let svg = '';
+
+  if (useFont) {
+    const lines = wrapQuote(quote, fontSize, maxWidth, estimateTextWidth);
+    const lineHeight = fontSize * 1.55;
+    lines.forEach((line, index) => {
+      const lineCenterY = centerY + (index - (lines.length - 1) / 2) * lineHeight;
+      svg += svgText(line, centerX, lineCenterY + fontSize * 0.35, {
+        size: fontSize, weight: 500, fill: color, spacing: 0.5,
+      });
+    });
+    return svg;
+  }
+
+  const letterSpacing = fontSize * 0.12;
+  const lines = wrapQuote(quote, fontSize, maxWidth, (t, s) => measureText(t, s, letterSpacing));
+  const lineHeight = fontSize * 1.9;
+  const startY = centerY - ((lines.length - 1) * lineHeight + fontSize) / 2;
   lines.forEach((line, index) => {
     svg += renderText(line, centerX, startY + index * lineHeight, fontSize, color, letterSpacing);
   });
-
   return svg;
 }
 
@@ -106,6 +159,7 @@ function generateSVG(date, config = {}) {
   const todayNumber = completedDays + 1;
 
   const layout = calculateGridLayout(totalDays, cfg);
+  const useFont = cfg.textEngine !== 'shapes';
 
   let svg = `<svg width="${cfg.width}" height="${cfg.height}" xmlns="http://www.w3.org/2000/svg">`;
 
@@ -153,6 +207,12 @@ function generateSVG(date, config = {}) {
         `<rect x="${x}" y="${y}" width="${boxSize.toFixed(2)}" height="${boxSize.toFixed(2)}" rx="${cornerRadius}" fill="${fill}"/>`;
       const letter = (color) => {
         if (!monthLetter) return '';
+        if (useFont) {
+          const fontSize = boxSize * 0.56;
+          return svgText(monthLetter.toUpperCase(), x + boxSize / 2, y + boxSize / 2 + fontSize * 0.36, {
+            size: +fontSize.toFixed(2), weight: 700, fill: color,
+          });
+        }
         const lx = x + (boxSize - getCharWidth(monthLetter, letterSize)) / 2;
         const ly = y + (boxSize - letterSize) / 2;
         return drawChar(monthLetter, lx, ly, letterSize, color);
@@ -177,16 +237,21 @@ function generateSVG(date, config = {}) {
 
   const gridBottom = gridStartY + totalGridHeight;
 
-  // Year percentage in monoline digits, centered below grid
-  const pctSize = 56;
+  // Year percentage centered below grid
   const pctCenterY = gridBottom + cfg.percentageSpace / 2;
-  svg += renderText(`${yearProgress}%`, cfg.width / 2, pctCenterY - pctSize / 2, pctSize, cfg.textColor, pctSize * 0.12);
+  if (useFont) {
+    svg += svgText(`${yearProgress}%`, cfg.width / 2, pctCenterY + 64 * 0.35, {
+      size: 64, weight: 700, fill: cfg.textColor, spacing: 1,
+    });
+  } else {
+    svg += renderText(`${yearProgress}%`, cfg.width / 2, pctCenterY - 28, 56, cfg.textColor, 56 * 0.12);
+  }
 
   // Daily quote centered below percentage, kept narrow so it never runs edge-to-edge
   const dayOfYear = getDayOfYear(date);
   const quote = getQuoteForDay(dayOfYear);
   const quoteCenterY = gridBottom + cfg.percentageSpace + cfg.quoteSpace / 2;
-  svg += generateQuoteText(quote, cfg.width / 2, quoteCenterY, 26, 820, cfg.quoteColor);
+  svg += generateQuoteText(quote, cfg.width / 2, quoteCenterY, useFont ? 30 : 26, 820, cfg.quoteColor, useFont);
 
   svg += `</svg>`;
 
