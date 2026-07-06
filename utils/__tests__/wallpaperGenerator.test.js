@@ -89,11 +89,10 @@ describe('wallpaperGenerator', () => {
       const svg = generateSVG(date);
       const totalDays = getTotalDaysInYear(2024);
 
-      // Future day cells share the dim fill color (progress bar track uses it too)
       const dimRe = new RegExp(`<rect[^>]*fill="${DEFAULT_CONFIG.emptyCircleColor}"`, 'g');
       const dimRects = (svg.match(dimRe) || []).length;
-      // totalDays - 14 completed - 1 today (accent), plus 1 bar track
-      expect(dimRects).toBe(totalDays - 15 + 1);
+      // totalDays - 14 completed - 1 today (accent)
+      expect(dimRects).toBe(totalDays - 15);
     });
 
     test('should highlight today with the accent color', () => {
@@ -103,13 +102,6 @@ describe('wallpaperGenerator', () => {
       const accentCells = svg.match(new RegExp(`<rect[^>]*fill="${DEFAULT_CONFIG.accentColor}"`, 'g')) || [];
       expect(accentCells.length).toBe(1);
       expect(svg).toContain('url(#todayGlow)');
-    });
-
-    test('should include a progress bar', () => {
-      const date = new Date(2024, 0, 15);
-      const svg = generateSVG(date);
-
-      expect(svg).toContain('url(#barFill)');
     });
 
     test('should include year progress percentage using shapes', () => {
@@ -154,8 +146,8 @@ describe('wallpaperGenerator', () => {
       const filledRe = new RegExp(`<rect[^>]*fill="${DEFAULT_CONFIG.filledCircleColor}"`, 'g');
       expect((svg.match(filledRe) || []).length).toBe(0);
       const dimRe = new RegExp(`<rect[^>]*fill="${DEFAULT_CONFIG.emptyCircleColor}"`, 'g');
-      // 365 future days + 1 progress bar track
-      expect((svg.match(dimRe) || []).length).toBe(366);
+      // 365 future days (today is the accent cell)
+      expect((svg.match(dimRe) || []).length).toBe(365);
     });
 
     test('should handle year end correctly', () => {
@@ -167,8 +159,8 @@ describe('wallpaperGenerator', () => {
       const filledRe = new RegExp(`<rect[^>]*fill="${DEFAULT_CONFIG.filledCircleColor}"`, 'g');
       expect((svg.match(filledRe) || []).length).toBe(totalDays - 1);
       const dimRe = new RegExp(`<rect[^>]*fill="${DEFAULT_CONFIG.emptyCircleColor}"`, 'g');
-      // No future days; only the progress bar track uses the dim color
-      expect((svg.match(dimRe) || []).length).toBe(1);
+      // No future days remain
+      expect((svg.match(dimRe) || []).length).toBe(0);
     });
 
     test('should include month letters for last day of each month', () => {
@@ -181,10 +173,10 @@ describe('wallpaperGenerator', () => {
       expect((svg.match(letterRe) || []).length).toBeGreaterThanOrEqual(6);
     });
 
-    test('should render caption with singular day on Dec 31', () => {
+    test('should include the exact percentage with two decimals', () => {
       const date = new Date(2024, 11, 31);
       const svg = generateSVG(date);
-      // "1 DAY LEFT" renders as shapes, so just make sure generation works
+      // Percentage renders as shapes, so just make sure generation works
       expect(svg).toContain('</svg>');
     });
   });

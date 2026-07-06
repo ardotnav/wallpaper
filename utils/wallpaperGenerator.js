@@ -8,8 +8,8 @@ const DEFAULT_CONFIG = {
   height: 2532,
   cols: 14, // 2 weeks per row
 
-  topPadding: 500,
-  sidePadding: 300,
+  topPadding: 420,
+  sidePadding: 320,
   percentageSpace: 80,
   quoteSpace: 120,
   bottomPadding: 240,
@@ -101,8 +101,6 @@ function generateSVG(date, config = {}) {
   const completedDays = getCompletedDays(date);
   const totalDays = getTotalDaysInYear(year);
   const yearProgress = getYearProgress(date);
-  const progressFraction = completedDays / totalDays;
-  const daysLeft = totalDays - completedDays;
   const todayNumber = completedDays + 1;
 
   const layout = calculateGridLayout(totalDays, cfg);
@@ -119,10 +117,6 @@ function generateSVG(date, config = {}) {
   svg += `<stop offset="0" stop-color="${cfg.accentColor}" stop-opacity="0.4"/>`;
   svg += `<stop offset="1" stop-color="${cfg.accentColor}" stop-opacity="0"/>`;
   svg += `</radialGradient>`;
-  svg += `<linearGradient id="barFill" x1="0" y1="0" x2="1" y2="0">`;
-  svg += `<stop offset="0" stop-color="${cfg.filledCircleColor}" stop-opacity="0.45"/>`;
-  svg += `<stop offset="1" stop-color="${cfg.accentColor}"/>`;
-  svg += `</linearGradient>`;
   svg += `</defs>`;
 
   svg += `<rect width="${cfg.width}" height="${cfg.height}" fill="${cfg.backgroundColor}"/>`;
@@ -130,14 +124,14 @@ function generateSVG(date, config = {}) {
 
   // Day grid: soft rounded cells, dimmed future days, glowing "today"
   const uniformSpacing = Math.min(layout.horizontalSpacing, layout.verticalSpacing);
-  const boxSize = uniformSpacing * 0.72;
+  const boxSize = uniformSpacing * 0.82;
   const gap = uniformSpacing - boxSize;
-  const cornerRadius = +(boxSize * 0.32).toFixed(2);
+  const cornerRadius = +(boxSize * 0.3).toFixed(2);
 
   const totalGridWidth = layout.cols * uniformSpacing;
   const totalGridHeight = layout.rows * uniformSpacing;
   const gridStartX = (cfg.width - totalGridWidth) / 2;
-  const gridStartY = cfg.topPadding;
+  const gridStartY = cfg.topPadding + (cfg.height - cfg.topPadding - cfg.percentageSpace - cfg.quoteSpace - cfg.bottomPadding - totalGridHeight) / 2;
 
   const monthEndDays = getMonthEndDays(year);
   const letterSize = boxSize * 0.5;
@@ -178,37 +172,16 @@ function generateSVG(date, config = {}) {
 
   const gridBottom = gridStartY + totalGridHeight;
 
-  // Slim progress bar aligned with the grid
-  const barX = gridStartX + gap / 2;
-  const barWidth = totalGridWidth - gap;
-  const barY = gridBottom + 88;
-  const barHeight = 8;
-  const fillWidth = Math.max(barHeight, progressFraction * barWidth);
+  // Year percentage in monoline digits, centered below grid
+  const pctSize = 52;
+  const pctCenterY = gridBottom + cfg.percentageSpace / 2;
+  svg += renderText(`${yearProgress}%`, cfg.width / 2, pctCenterY - pctSize / 2, pctSize, cfg.textColor, pctSize * 0.1);
 
-  svg += `<rect x="${barX.toFixed(2)}" y="${barY}" width="${barWidth.toFixed(2)}" height="${barHeight}" rx="${barHeight / 2}" fill="${cfg.emptyCircleColor}"/>`;
-  svg += `<rect x="${barX.toFixed(2)}" y="${barY}" width="${fillWidth.toFixed(2)}" height="${barHeight}" rx="${barHeight / 2}" fill="url(#barFill)"/>`;
-  const tipX = (barX + fillWidth).toFixed(2);
-  const tipY = barY + barHeight / 2;
-  svg += `<circle cx="${tipX}" cy="${tipY}" r="16" fill="${cfg.accentColor}" fill-opacity="0.25"/>`;
-  svg += `<circle cx="${tipX}" cy="${tipY}" r="7" fill="${cfg.accentColor}"/>`;
-
-  // Big percentage in monoline digits (truncated, not rounded — never overstate progress)
-  const pctText = `${(Math.floor(Number(yearProgress) * 10) / 10).toFixed(1)}%`;
-  const pctSize = 110;
-  const pctY = barY + 72;
-  svg += renderText(pctText, cfg.width / 2, pctY, pctSize, cfg.textColor, pctSize * 0.1, pctSize * 0.082);
-
-  // Small letterspaced caption
-  const captionSize = 26;
-  const captionY = pctY + pctSize + 58;
-  const caption = `${daysLeft} DAY${daysLeft === 1 ? '' : 'S'} LEFT`;
-  svg += renderText(caption, cfg.width / 2, captionY, captionSize, cfg.captionColor, captionSize * 0.38);
-
-  // Daily quote
+  // Daily quote centered below percentage
   const dayOfYear = getDayOfYear(date);
   const quote = getQuoteForDay(dayOfYear);
-  const quoteCenterY = captionY + 200;
-  svg += generateQuoteText(quote, cfg.width / 2, quoteCenterY, 27, cfg.width - 240, cfg.quoteColor);
+  const quoteCenterY = gridBottom + cfg.percentageSpace + cfg.quoteSpace / 2;
+  svg += generateQuoteText(quote, cfg.width / 2, quoteCenterY, 26, cfg.width - 120, cfg.quoteColor);
 
   svg += `</svg>`;
 
