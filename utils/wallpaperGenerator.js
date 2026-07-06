@@ -8,11 +8,13 @@ const DEFAULT_CONFIG = {
   height: 2532,
   cols: 14, // 2 weeks per row
 
-  topPadding: 420,
+  // iOS zooms wallpapers slightly (~9%) for the parallax effect, so keep
+  // content well clear of the bottom lock-screen shortcuts
+  topPadding: 400,
   sidePadding: 320,
   percentageSpace: 80,
   quoteSpace: 120,
-  bottomPadding: 240,
+  bottomPadding: 460,
 
   // Colors
   backgroundColor: '#0B1626',
@@ -20,12 +22,12 @@ const DEFAULT_CONFIG = {
   backgroundBottom: '#060B14',
   filledCircleColor: '#E8EDF4',   // completed day cells
   emptyCircleColor: '#182640',    // future day cells
-  accentColor: '#F5B84F',         // today marker, bar tip
+  accentColor: '#F5B84F',         // today marker
   textColor: '#EDF1F7',
   captionColor: '#5C6D85',
-  quoteColor: '#6C7E96',
-  monthLetterOnFilled: '#8E9AAB',
-  monthLetterOnEmpty: '#2E4160',
+  quoteColor: '#64748C',
+  monthLetterOnFilled: '#64748B',
+  monthLetterOnEmpty: '#35496D',
 };
 
 /**
@@ -124,7 +126,7 @@ function generateSVG(date, config = {}) {
 
   // Day grid: soft rounded cells, dimmed future days, glowing "today"
   const uniformSpacing = Math.min(layout.horizontalSpacing, layout.verticalSpacing);
-  const boxSize = uniformSpacing * 0.82;
+  const boxSize = uniformSpacing * 0.78;
   const gap = uniformSpacing - boxSize;
   const cornerRadius = +(boxSize * 0.3).toFixed(2);
 
@@ -134,14 +136,17 @@ function generateSVG(date, config = {}) {
   const gridStartY = cfg.topPadding + (cfg.height - cfg.topPadding - cfg.percentageSpace - cfg.quoteSpace - cfg.bottomPadding - totalGridHeight) / 2;
 
   const monthEndDays = getMonthEndDays(year);
-  const letterSize = boxSize * 0.5;
+  const letterSize = boxSize * 0.46;
+  // Center the final partial row so leftover days don't dangle at the left edge
+  const lastRowCells = totalDays - (layout.rows - 1) * layout.cols;
 
   for (let row = 0; row < layout.rows; row++) {
     for (let col = 0; col < layout.cols; col++) {
       const dayNumber = row * layout.cols + col + 1;
       if (dayNumber > totalDays) continue;
 
-      const x = +(gridStartX + col * uniformSpacing + gap / 2).toFixed(2);
+      const rowOffset = row === layout.rows - 1 ? ((layout.cols - lastRowCells) * uniformSpacing) / 2 : 0;
+      const x = +(gridStartX + rowOffset + col * uniformSpacing + gap / 2).toFixed(2);
       const y = +(gridStartY + row * uniformSpacing + gap / 2).toFixed(2);
       const monthLetter = monthEndDays[dayNumber];
       const cell = (fill) =>
@@ -157,7 +162,7 @@ function generateSVG(date, config = {}) {
         // Today: accent cell with a soft glow so you can find yourself in the year
         const cx = x + boxSize / 2;
         const cy = y + boxSize / 2;
-        svg += `<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${(boxSize * 2.4).toFixed(2)}" fill="url(#todayGlow)"/>`;
+        svg += `<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${(boxSize * 2.6).toFixed(2)}" fill="url(#todayGlow)"/>`;
         svg += cell(cfg.accentColor);
         svg += letter(cfg.backgroundBottom);
       } else if (dayNumber <= completedDays) {
@@ -173,15 +178,15 @@ function generateSVG(date, config = {}) {
   const gridBottom = gridStartY + totalGridHeight;
 
   // Year percentage in monoline digits, centered below grid
-  const pctSize = 52;
+  const pctSize = 56;
   const pctCenterY = gridBottom + cfg.percentageSpace / 2;
-  svg += renderText(`${yearProgress}%`, cfg.width / 2, pctCenterY - pctSize / 2, pctSize, cfg.textColor, pctSize * 0.1);
+  svg += renderText(`${yearProgress}%`, cfg.width / 2, pctCenterY - pctSize / 2, pctSize, cfg.textColor, pctSize * 0.12);
 
-  // Daily quote centered below percentage
+  // Daily quote centered below percentage, kept narrow so it never runs edge-to-edge
   const dayOfYear = getDayOfYear(date);
   const quote = getQuoteForDay(dayOfYear);
   const quoteCenterY = gridBottom + cfg.percentageSpace + cfg.quoteSpace / 2;
-  svg += generateQuoteText(quote, cfg.width / 2, quoteCenterY, 26, cfg.width - 120, cfg.quoteColor);
+  svg += generateQuoteText(quote, cfg.width / 2, quoteCenterY, 26, 820, cfg.quoteColor);
 
   svg += `</svg>`;
 
