@@ -8,33 +8,9 @@ const server = http.createServer(async (req, res) => {
 
   // Only handle GET requests to /api/wallpaper
   if (req.method === 'GET' && parsedUrl.pathname === '/api/wallpaper') {
-    // Create Vercel-compatible request/response objects
-    const vercelReq = {
-      method: req.method,
-      url: req.url,
-      headers: req.headers,
-      query: Object.fromEntries(parsedUrl.searchParams),
-    };
-
-    const vercelRes = {
-      setHeader: (name, value) => {
-        res.setHeader(name, value);
-      },
-      status: (code) => {
-        res.statusCode = code;
-        return vercelRes;
-      },
-      send: (data) => {
-        res.end(data);
-      },
-      json: (data) => {
-        res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify(data));
-      },
-    };
-
+    // The handler only uses plain Node req/res APIs, so pass them through
     try {
-      await handler(vercelReq, vercelRes);
+      await handler(req, res);
     } catch (error) {
       console.error('Error handling request:', error);
       res.writeHead(500, { 'Content-Type': 'application/json' });
