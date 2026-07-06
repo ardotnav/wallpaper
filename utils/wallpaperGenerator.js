@@ -8,13 +8,14 @@ const DEFAULT_CONFIG = {
   height: 2532,
   cols: 14, // 2 weeks per row
 
-  // iOS zooms wallpapers slightly (~9%) for the parallax effect, so keep
-  // content clear of the bottom lock-screen shortcuts
+  // iOS crops wallpapers unpredictably (9-16% zoom observed), so keep the
+  // whole composition compact and end all content well above the bottom
+  // lock-screen shortcuts
   topPadding: 420,
-  sidePadding: 320,
+  sidePadding: 380,
   percentageSpace: 80,
   quoteSpace: 120,
-  bottomPadding: 340,
+  bottomPadding: 640,
 
   // 'font' renders text with the bundled Space Grotesk TTFs; 'shapes' falls
   // back to the built-in monoline glyphs when the fonts are unavailable
@@ -240,18 +241,18 @@ function generateSVG(date, config = {}) {
   // Year percentage centered below grid
   const pctCenterY = gridBottom + cfg.percentageSpace / 2;
   if (useFont) {
-    svg += svgText(`${yearProgress}%`, cfg.width / 2, pctCenterY + 64 * 0.35, {
-      size: 64, weight: 700, fill: cfg.textColor, spacing: 1,
+    svg += svgText(`${yearProgress}%`, cfg.width / 2, pctCenterY + 52 * 0.35, {
+      size: 52, weight: 700, fill: cfg.textColor, spacing: 1,
     });
   } else {
-    svg += renderText(`${yearProgress}%`, cfg.width / 2, pctCenterY - 28, 56, cfg.textColor, 56 * 0.12);
+    svg += renderText(`${yearProgress}%`, cfg.width / 2, pctCenterY - 24, 48, cfg.textColor, 48 * 0.12);
   }
 
   // Daily quote centered below percentage, kept narrow so it never runs edge-to-edge
   const dayOfYear = getDayOfYear(date);
   const quote = getQuoteForDay(dayOfYear);
   const quoteCenterY = gridBottom + cfg.percentageSpace + cfg.quoteSpace / 2;
-  svg += generateQuoteText(quote, cfg.width / 2, quoteCenterY, useFont ? 30 : 26, 820, cfg.quoteColor, useFont);
+  svg += generateQuoteText(quote, cfg.width / 2, quoteCenterY, useFont ? 27 : 24, 720, cfg.quoteColor, useFont);
 
   svg += `</svg>`;
 
