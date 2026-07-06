@@ -3,14 +3,17 @@ const path = require('path');
 const { generateSVG } = require('../utils/wallpaperGenerator');
 const { getIndiaDate } = require('../utils/dateUtils');
 
-// Point fontconfig at the bundled Space Grotesk TTFs so sharp (librsvg/pango)
-// can render <text> on serverless machines that ship no system fonts.
+// Point fontconfig at the bundled TTFs so sharp (librsvg/pango) can render
+// <text> on serverless machines that ship no system fonts.
 const FONT_DIR = path.join(__dirname, '..', 'assets', 'fonts');
 const FONTCONFIG_DIR = '/tmp/wallpaper-fontconfig';
 
 function setupFonts() {
   try {
-    if (!fs.existsSync(path.join(FONT_DIR, 'SpaceGrotesk_500Medium.ttf'))) {
+    if (
+      !fs.existsSync(path.join(FONT_DIR, 'Cinzel_600SemiBold.ttf')) ||
+      !fs.existsSync(path.join(FONT_DIR, 'EBGaramond_400Regular_Italic.ttf'))
+    ) {
       return false;
     }
     fs.mkdirSync(FONTCONFIG_DIR, { recursive: true });

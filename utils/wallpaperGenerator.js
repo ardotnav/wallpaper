@@ -17,22 +17,24 @@ const DEFAULT_CONFIG = {
   quoteSpace: 120,
   bottomPadding: 640,
 
-  // 'font' renders text with the bundled Space Grotesk TTFs; 'shapes' falls
-  // back to the built-in monoline glyphs when the fonts are unavailable
+  // 'font' renders text with the bundled TTFs (Cinzel + EB Garamond);
+  // 'shapes' falls back to the built-in monoline glyphs when fonts are
+  // unavailable
   textEngine: 'font',
 
-  // Colors
+  // "Illuminated Codex" palette: lapis lazuli background, gold-leaf cells
   backgroundColor: '#0B1626',
-  backgroundTop: '#101E32',
-  backgroundBottom: '#060B14',
-  filledCircleColor: '#E8EDF4',   // completed day cells
-  emptyCircleColor: '#182640',    // future day cells
-  accentColor: '#F5B84F',         // today marker
-  textColor: '#EDF1F7',
-  captionColor: '#5C6D85',
-  quoteColor: '#7B89A0',
-  monthLetterOnFilled: '#64748B',
-  monthLetterOnEmpty: '#35496D',
+  backgroundTop: '#141F3B',
+  backgroundBottom: '#070B18',
+  goldHi: '#F0D080',              // gold-leaf gradient, light end
+  goldLo: '#B98A2F',              // gold-leaf gradient, dark end
+  emptyCircleColor: '#1B2747',    // future day cells
+  accentColor: '#FFDF8E',         // today marker
+  textColor: '#EFE3C0',
+  quoteColor: '#A99E7C',
+  frameColor: '#8A6D2F',
+  monthLetterOnFilled: '#54390E',
+  monthLetterOnEmpty: '#3A4C7E',
 };
 
 /**
@@ -77,24 +79,26 @@ function escapeXml(text) {
 }
 
 /**
- * Emit an SVG <text> element set in the bundled Space Grotesk
+ * Emit an SVG <text> element set in one of the bundled typefaces
  */
-function svgText(text, x, y, { size, weight, fill, spacing }) {
+function svgText(text, x, y, { font, size, weight, fill, spacing, italic }) {
+  const family = font === 'cinzel' ? 'Cinzel' : "'EB Garamond'";
   const ls = spacing ? ` letter-spacing="${spacing}"` : '';
-  return `<text x="${+x.toFixed(2)}" y="${+y.toFixed(2)}" font-family="'Space Grotesk', sans-serif" font-size="${size}" font-weight="${weight}" fill="${fill}"${ls} text-anchor="middle">${escapeXml(text)}</text>`;
+  const style = italic ? ' font-style="italic"' : '';
+  return `<text x="${+x.toFixed(2)}" y="${+y.toFixed(2)}" font-family="${family}, serif" font-size="${size}" font-weight="${weight}"${style} fill="${fill}"${ls} text-anchor="middle">${escapeXml(text)}</text>`;
 }
 
 /**
- * Rough width estimate for Space Grotesk (used only for word-wrapping)
+ * Rough width estimate for EB Garamond italic (used only for word-wrapping)
  */
 function estimateTextWidth(text, fontSize) {
   let units = 0;
   for (const ch of text) {
-    if (ch === ' ') units += 0.3;
-    else if ("iljt.,'!".includes(ch)) units += 0.3;
-    else if ('mwMW'.includes(ch)) units += 0.88;
-    else if (/[A-Z0-9]/.test(ch)) units += 0.68;
-    else units += 0.56;
+    if (ch === ' ') units += 0.26;
+    else if ("iljtf.,;'!".includes(ch)) units += 0.24;
+    else if ('mwMW'.includes(ch)) units += 0.78;
+    else if (/[A-Z0-9]/.test(ch)) units += 0.6;
+    else units += 0.46;
   }
   return units * fontSize;
 }
@@ -128,11 +132,11 @@ function generateQuoteText(quote, centerX, centerY, fontSize, maxWidth, color, u
 
   if (useFont) {
     const lines = wrapQuote(quote, fontSize, maxWidth, estimateTextWidth);
-    const lineHeight = fontSize * 1.55;
+    const lineHeight = fontSize * 1.5;
     lines.forEach((line, index) => {
       const lineCenterY = centerY + (index - (lines.length - 1) / 2) * lineHeight;
-      svg += svgText(line, centerX, lineCenterY + fontSize * 0.35, {
-        size: fontSize, weight: 500, fill: color, spacing: 0.5,
+      svg += svgText(line, centerX, lineCenterY + fontSize * 0.33, {
+        font: 'garamond', size: fontSize, weight: 400, italic: true, fill: color,
       });
     });
     return svg;
@@ -164,14 +168,18 @@ function generateSVG(date, config = {}) {
 
   let svg = `<svg width="${cfg.width}" height="${cfg.height}" xmlns="http://www.w3.org/2000/svg">`;
 
-  // Gradient background with a faint glow behind the grid for depth
+  // Lapis gradient background, gold-leaf gradient for cells, candle glow
   svg += `<defs>`;
   svg += `<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">`;
   svg += `<stop offset="0" stop-color="${cfg.backgroundTop}"/>`;
   svg += `<stop offset="1" stop-color="${cfg.backgroundBottom}"/>`;
   svg += `</linearGradient>`;
+  svg += `<linearGradient id="leaf" x1="0" y1="0" x2="1" y2="1">`;
+  svg += `<stop offset="0" stop-color="${cfg.goldHi}"/>`;
+  svg += `<stop offset="1" stop-color="${cfg.goldLo}"/>`;
+  svg += `</linearGradient>`;
   svg += `<radialGradient id="todayGlow">`;
-  svg += `<stop offset="0" stop-color="${cfg.accentColor}" stop-opacity="0.4"/>`;
+  svg += `<stop offset="0" stop-color="${cfg.accentColor}" stop-opacity="0.45"/>`;
   svg += `<stop offset="1" stop-color="${cfg.accentColor}" stop-opacity="0"/>`;
   svg += `</radialGradient>`;
   svg += `</defs>`;
@@ -204,14 +212,14 @@ function generateSVG(date, config = {}) {
       const x = +(gridStartX + rowOffset + col * uniformSpacing + gap / 2).toFixed(2);
       const y = +(gridStartY + row * uniformSpacing + gap / 2).toFixed(2);
       const monthLetter = monthEndDays[dayNumber];
-      const cell = (fill) =>
-        `<rect x="${x}" y="${y}" width="${boxSize.toFixed(2)}" height="${boxSize.toFixed(2)}" rx="${cornerRadius}" fill="${fill}"/>`;
+      const cell = (fill, opacity) =>
+        `<rect x="${x}" y="${y}" width="${boxSize.toFixed(2)}" height="${boxSize.toFixed(2)}" rx="${cornerRadius}" fill="${fill}"${opacity ? ` fill-opacity="${opacity}"` : ''}/>`;
       const letter = (color) => {
         if (!monthLetter) return '';
         if (useFont) {
-          const fontSize = boxSize * 0.56;
+          const fontSize = boxSize * 0.62;
           return svgText(monthLetter.toUpperCase(), x + boxSize / 2, y + boxSize / 2 + fontSize * 0.36, {
-            size: +fontSize.toFixed(2), weight: 700, fill: color,
+            font: 'garamond', size: +fontSize.toFixed(2), weight: 500, fill: color,
           });
         }
         const lx = x + (boxSize - getCharWidth(monthLetter, letterSize)) / 2;
@@ -220,14 +228,17 @@ function generateSVG(date, config = {}) {
       };
 
       if (dayNumber === todayNumber) {
-        // Today: accent cell with a soft glow so you can find yourself in the year
+        // Today: the brightest gold with a candle glow, so you can find
+        // yourself in the year
         const cx = x + boxSize / 2;
         const cy = y + boxSize / 2;
         svg += `<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${(boxSize * 2.6).toFixed(2)}" fill="url(#todayGlow)"/>`;
         svg += cell(cfg.accentColor);
         svg += letter(cfg.backgroundBottom);
       } else if (dayNumber <= completedDays) {
-        svg += cell(cfg.filledCircleColor);
+        // Gold-leaf tessera; deterministic per-day shimmer like real leaf
+        const shimmer = (0.82 + ((dayNumber * 2654435761) % 97) / 97 * 0.18).toFixed(2);
+        svg += cell('url(#leaf)', shimmer);
         svg += letter(cfg.monthLetterOnFilled);
       } else {
         svg += cell(cfg.emptyCircleColor);
@@ -238,21 +249,34 @@ function generateSVG(date, config = {}) {
 
   const gridBottom = gridStartY + totalGridHeight;
 
-  // Year percentage centered below grid
+  // Fine double-rule plate frame with diamond finials at the corners
+  const frameMargin = 34;
+  const fx1 = gridStartX + gap / 2 - frameMargin;
+  const fy1 = gridStartY + gap / 2 - frameMargin;
+  const fx2 = gridStartX + totalGridWidth - gap / 2 + frameMargin;
+  const fy2 = gridBottom - gap / 2 + frameMargin;
+  svg += `<rect x="${fx1.toFixed(2)}" y="${fy1.toFixed(2)}" width="${(fx2 - fx1).toFixed(2)}" height="${(fy2 - fy1).toFixed(2)}" fill="none" stroke="${cfg.frameColor}" stroke-width="1.6"/>`;
+  svg += `<rect x="${(fx1 - 8).toFixed(2)}" y="${(fy1 - 8).toFixed(2)}" width="${(fx2 - fx1 + 16).toFixed(2)}" height="${(fy2 - fy1 + 16).toFixed(2)}" fill="none" stroke="${cfg.frameColor}" stroke-opacity="0.45" stroke-width="1"/>`;
+  const diamond = 7;
+  for (const [dx, dy] of [[fx1 - 8, fy1 - 8], [fx2 + 8, fy1 - 8], [fx1 - 8, fy2 + 8], [fx2 + 8, fy2 + 8]]) {
+    svg += `<rect x="${(dx - diamond / 2).toFixed(2)}" y="${(dy - diamond / 2).toFixed(2)}" width="${diamond}" height="${diamond}" fill="${cfg.accentColor}" transform="rotate(45 ${dx.toFixed(2)} ${dy.toFixed(2)})"/>`;
+  }
+
+  // Year percentage in Roman capitals, centered below the frame
   const pctCenterY = gridBottom + cfg.percentageSpace / 2;
   if (useFont) {
-    svg += svgText(`${yearProgress}%`, cfg.width / 2, pctCenterY + 52 * 0.35, {
-      size: 52, weight: 700, fill: cfg.textColor, spacing: 1,
+    svg += svgText(`${yearProgress}%`, cfg.width / 2, pctCenterY + 46, {
+      font: 'cinzel', size: 58, weight: 600, fill: cfg.textColor, spacing: 3,
     });
   } else {
     svg += renderText(`${yearProgress}%`, cfg.width / 2, pctCenterY - 24, 48, cfg.textColor, 48 * 0.12);
   }
 
-  // Daily quote centered below percentage, kept narrow so it never runs edge-to-edge
+  // Daily quote in italics below the percentage
   const dayOfYear = getDayOfYear(date);
   const quote = getQuoteForDay(dayOfYear);
-  const quoteCenterY = gridBottom + cfg.percentageSpace + cfg.quoteSpace / 2;
-  svg += generateQuoteText(quote, cfg.width / 2, quoteCenterY, useFont ? 27 : 24, 720, cfg.quoteColor, useFont);
+  const quoteCenterY = gridBottom + cfg.percentageSpace + cfg.quoteSpace / 2 + (useFont ? 36 : 0);
+  svg += generateQuoteText(quote, cfg.width / 2, quoteCenterY, useFont ? 33 : 24, 780, cfg.quoteColor, useFont);
 
   svg += `</svg>`;
 

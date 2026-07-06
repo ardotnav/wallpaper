@@ -1,15 +1,16 @@
 # Auto-Updating Year Progress Wallpaper
 
-A serverless function that generates a daily wallpaper showing your year progress. The wallpaper displays a grid of rounded day cells (one for each day of the year), a glowing marker on today, and the year percentage — all over a soft gradient background.
+A serverless function that generates a daily wallpaper showing your year progress, styled as an illuminated manuscript: a lapis lazuli background, gold-leaf cells for the days you've lived, a candle-glow marker on today, and the year percentage in Roman capitals — framed like a plate from a Renaissance codex.
 
 ## Features
 
 - **Auto-updating**: Generates a fresh image on each request based on the current date
-- **Year Progress Grid**: 14 columns × 26-27 rows of rounded cells representing all days of the year
-- **Today Marker**: The current day glows in an accent color so you can find yourself in the year
-- **Year Percentage**: Displays current year progress percentage below the grid
-- **Daily Quote**: A rotating motivational quote rendered in a monoline shape font (no system fonts needed)
-- **Customizable Accent**: Pass `?accent=RRGGBB` to change the accent color (e.g. `?accent=7DD3FC`)
+- **Year Progress Grid**: 14 columns × 26-27 rows of gilded cells representing all days of the year
+- **Today Marker**: The current day glows in bright gold so you can find yourself in the year
+- **Year Percentage**: Set in Cinzel (Trajan-style Roman capitals) below the grid
+- **Daily Quote**: A rotating motivational quote set in italic EB Garamond
+- **Bundled Typography**: Fonts ship with the function (no system fonts needed on the server)
+- **Customizable Accent**: Pass `?accent=RRGGBB` to change the today-marker color
 - **iPhone Optimized**: Image dimensions optimized for iPhone wallpapers (1170×2532)
 
 ## Setup
@@ -77,10 +78,10 @@ Now your wallpaper will automatically update every day!
 
 - The API endpoint calculates the current day of the year
 - It generates a grid where each rounded cell represents one day
-- Cells are filled for days that have passed, dimmed for future days, and today glows in the accent color
+- Days that have passed are gilded (each cell's gold shimmer varies slightly, like real leaf), future days sit in lapis shadow, and today glows brightest
 - Month-end cells carry a subtle month initial
-- The year percentage and a daily quote sit below the grid
-- All text is drawn as thin stroked SVG paths (a built-in monoline "font"), so it renders identically on serverless machines with no fonts installed
+- The year percentage and a daily quote sit below the framed grid
+- Text renders with TTFs bundled in `assets/fonts` (registered via fontconfig at cold start); if the fonts are missing, a built-in shape-based text renderer takes over
 - The image is generated fresh on each request, so it's always up to date
 
 ## Customization

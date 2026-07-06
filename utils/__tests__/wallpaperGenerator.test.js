@@ -75,12 +75,11 @@ describe('wallpaperGenerator', () => {
       expect(rectMatches.length).toBeGreaterThanOrEqual(totalDays);
     });
 
-    test('should have filled cells for completed days', () => {
+    test('should have gold-leaf cells for completed days', () => {
       const date = new Date(2024, 0, 15); // Day 15, so 14 days completed
       const svg = generateSVG(date);
 
-      const filledRe = new RegExp(`<rect[^>]*fill="${DEFAULT_CONFIG.filledCircleColor}"`, 'g');
-      const filledRectMatches = svg.match(filledRe) || [];
+      const filledRectMatches = svg.match(/<rect[^>]*fill="url\(#leaf\)"/g) || [];
       expect(filledRectMatches.length).toBe(14);
     });
 
@@ -99,7 +98,8 @@ describe('wallpaperGenerator', () => {
       const date = new Date(2024, 0, 15);
       const svg = generateSVG(date);
 
-      const accentCells = svg.match(new RegExp(`<rect[^>]*fill="${DEFAULT_CONFIG.accentColor}"`, 'g')) || [];
+      // Day cells have rounded corners (rx), unlike the frame's corner diamonds
+      const accentCells = svg.match(new RegExp(`<rect[^>]*rx="[^"]*" fill="${DEFAULT_CONFIG.accentColor}"`, 'g')) || [];
       expect(accentCells.length).toBe(1);
       expect(svg).toContain('url(#todayGlow)');
     });
@@ -108,9 +108,9 @@ describe('wallpaperGenerator', () => {
       const date = new Date(2024, 0, 15);
       const svg = generateSVG(date);
 
-      // Percentage renders as a bold Space Grotesk <text> element
-      expect(svg).toMatch(/<text[^>]*font-weight="700"[^>]*>3\.83%<\/text>/);
-      expect(svg).toContain('Space Grotesk');
+      // Percentage renders as a Cinzel <text> element
+      expect(svg).toMatch(/<text[^>]*Cinzel[^>]*>3\.83%<\/text>/);
+      expect(svg).toContain('EB Garamond');
     });
 
     test('should fall back to monoline shape text when requested', () => {
@@ -127,7 +127,7 @@ describe('wallpaperGenerator', () => {
     test('should use custom colors when provided', () => {
       const customConfig = {
         backgroundColor: '#FF0000',
-        filledCircleColor: '#00FF00',
+        goldHi: '#00FF00',
         emptyCircleColor: '#0000FF',
         accentColor: '#123456',
       };
@@ -135,7 +135,7 @@ describe('wallpaperGenerator', () => {
       const svg = generateSVG(date, customConfig);
 
       expect(svg).toContain('fill="#FF0000"'); // Background
-      expect(svg).toContain('fill="#00FF00"'); // Completed cells
+      expect(svg).toContain('stop-color="#00FF00"'); // Gold-leaf gradient
       expect(svg).toContain('fill="#0000FF"'); // Future cells
       expect(svg).toContain('fill="#123456"'); // Today cell
     });
@@ -153,8 +153,7 @@ describe('wallpaperGenerator', () => {
       const svg = generateSVG(date);
 
       // No completed cells; today (Jan 1) is the accent cell, rest are dim
-      const filledRe = new RegExp(`<rect[^>]*fill="${DEFAULT_CONFIG.filledCircleColor}"`, 'g');
-      expect((svg.match(filledRe) || []).length).toBe(0);
+      expect((svg.match(/<rect[^>]*fill="url\(#leaf\)"/g) || []).length).toBe(0);
       const dimRe = new RegExp(`<rect[^>]*fill="${DEFAULT_CONFIG.emptyCircleColor}"`, 'g');
       // 365 future days (today is the accent cell)
       expect((svg.match(dimRe) || []).length).toBe(365);
@@ -166,8 +165,7 @@ describe('wallpaperGenerator', () => {
       const totalDays = getTotalDaysInYear(2024);
 
       // All days except today are completed; today (Dec 31) is the accent cell
-      const filledRe = new RegExp(`<rect[^>]*fill="${DEFAULT_CONFIG.filledCircleColor}"`, 'g');
-      expect((svg.match(filledRe) || []).length).toBe(totalDays - 1);
+      expect((svg.match(/<rect[^>]*fill="url\(#leaf\)"/g) || []).length).toBe(totalDays - 1);
       const dimRe = new RegExp(`<rect[^>]*fill="${DEFAULT_CONFIG.emptyCircleColor}"`, 'g');
       // No future days remain
       expect((svg.match(dimRe) || []).length).toBe(0);
