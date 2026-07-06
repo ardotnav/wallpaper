@@ -4,13 +4,16 @@ const handler = require('./api/wallpaper');
 const PORT = process.env.PORT || 3001;
 
 const server = http.createServer(async (req, res) => {
+  const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+
   // Only handle GET requests to /api/wallpaper
-  if (req.method === 'GET' && req.url === '/api/wallpaper') {
+  if (req.method === 'GET' && parsedUrl.pathname === '/api/wallpaper') {
     // Create Vercel-compatible request/response objects
     const vercelReq = {
       method: req.method,
       url: req.url,
       headers: req.headers,
+      query: Object.fromEntries(parsedUrl.searchParams),
     };
 
     const vercelRes = {
@@ -37,7 +40,7 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Internal server error' }));
     }
-  } else if (req.method === 'GET' && req.url === '/') {
+  } else if (req.method === 'GET' && parsedUrl.pathname === '/') {
     // Redirect root to the API endpoint
     res.writeHead(302, { Location: '/api/wallpaper' });
     res.end();

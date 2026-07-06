@@ -1,10 +1,20 @@
 const { generateSVG } = require('../utils/wallpaperGenerator');
 const { getIndiaDate } = require('../utils/dateUtils');
 
+// Optional ?accent=RRGGBB query param to customize the accent color
+function getConfigFromQuery(query) {
+  const config = {};
+  const accent = query && query.accent;
+  if (typeof accent === 'string' && /^[0-9a-fA-F]{6}$/.test(accent)) {
+    config.accentColor = `#${accent}`;
+  }
+  return config;
+}
+
 module.exports = async (req, res) => {
   try {
     const now = getIndiaDate();
-    const svg = generateSVG(now);
+    const svg = generateSVG(now, getConfigFromQuery(req.query));
 
     // Convert SVG to PNG using sharp
     const svgBuffer = Buffer.from(svg);

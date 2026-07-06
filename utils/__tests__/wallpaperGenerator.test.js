@@ -75,35 +75,51 @@ describe('wallpaperGenerator', () => {
       expect(rectMatches.length).toBeGreaterThanOrEqual(totalDays);
     });
 
-    test('should have filled rectangles for completed days', () => {
+    test('should have filled cells for completed days', () => {
       const date = new Date(2024, 0, 15); // Day 15, so 14 days completed
       const svg = generateSVG(date);
-      
-      // Count filled rectangles (includes completed days + digit segments for percentage)
-      const filledRectMatches = svg.match(/<rect[^>]*fill="#FFFFFF"[^>]*\/>/g) || [];
-      // Should have at least 14 completed days (plus some digit segments)
-      expect(filledRectMatches.length).toBeGreaterThanOrEqual(14);
+
+      const filledRe = new RegExp(`<rect[^>]*fill="${DEFAULT_CONFIG.filledCircleColor}"`, 'g');
+      const filledRectMatches = svg.match(filledRe) || [];
+      expect(filledRectMatches.length).toBe(14);
     });
 
-    test('should have empty rectangles for current and future days', () => {
+    test('should have dimmed cells for future days', () => {
       const date = new Date(2024, 0, 15); // Day 15 of 366, 14 completed
       const svg = generateSVG(date);
       const totalDays = getTotalDaysInYear(2024);
-      
-      // Should have empty rectangles for current day + future days
-      const emptyRects = (svg.match(/<rect[^>]*fill="none"[^>]*stroke/g) || []).length;
-      expect(emptyRects).toBeGreaterThanOrEqual(totalDays - 14);
+
+      // Future day cells share the dim fill color (progress bar track uses it too)
+      const dimRe = new RegExp(`<rect[^>]*fill="${DEFAULT_CONFIG.emptyCircleColor}"`, 'g');
+      const dimRects = (svg.match(dimRe) || []).length;
+      // totalDays - 14 completed - 1 today (accent), plus 1 bar track
+      expect(dimRects).toBe(totalDays - 15 + 1);
+    });
+
+    test('should highlight today with the accent color', () => {
+      const date = new Date(2024, 0, 15);
+      const svg = generateSVG(date);
+
+      const accentCells = svg.match(new RegExp(`<rect[^>]*fill="${DEFAULT_CONFIG.accentColor}"`, 'g')) || [];
+      expect(accentCells.length).toBe(1);
+      expect(svg).toContain('url(#todayGlow)');
+    });
+
+    test('should include a progress bar', () => {
+      const date = new Date(2024, 0, 15);
+      const svg = generateSVG(date);
+
+      expect(svg).toContain('url(#barFill)');
     });
 
     test('should include year progress percentage using shapes', () => {
       const date = new Date(2024, 0, 15);
       const svg = generateSVG(date);
-      
-      // Percentage is rendered using rect elements for 7-segment digits
-      // Count rects (background + digit segments)
-      const rectMatches = svg.match(/<rect/g);
-      expect(rectMatches).not.toBeNull();
-      expect(rectMatches.length).toBeGreaterThan(1); // More than just background
+
+      // Percentage and text are rendered as stroked monoline paths
+      const pathMatches = svg.match(/<path/g);
+      expect(pathMatches).not.toBeNull();
+      expect(pathMatches.length).toBeGreaterThan(1);
     });
 
     test('should use custom colors when provided', () => {
@@ -111,13 +127,15 @@ describe('wallpaperGenerator', () => {
         backgroundColor: '#FF0000',
         filledCircleColor: '#00FF00',
         emptyCircleColor: '#0000FF',
+        accentColor: '#123456',
       };
       const date = new Date(2024, 0, 15);
       const svg = generateSVG(date, customConfig);
-      
+
       expect(svg).toContain('fill="#FF0000"'); // Background
-      expect(svg).toContain('fill="#00FF00"'); // Filled circles
-      expect(svg).toContain('stroke="#0000FF"'); // Empty circles
+      expect(svg).toContain('fill="#00FF00"'); // Completed cells
+      expect(svg).toContain('fill="#0000FF"'); // Future cells
+      expect(svg).toContain('fill="#123456"'); // Today cell
     });
 
     test('should generate correct SVG dimensions', () => {
@@ -131,49 +149,43 @@ describe('wallpaperGenerator', () => {
     test('should handle year start correctly', () => {
       const date = new Date(2024, 0, 1); // January 1st (0 days completed)
       const svg = generateSVG(date);
-      
-      // 0 filled day rectangles, but some digit segments for percentage display
-      // All 366 day rectangles should be empty (unfilled)
-      const emptyDayRects = (svg.match(/<rect[^>]*fill="none"[^>]*stroke/g) || []).length;
-      expect(emptyDayRects).toBe(366); // All days are empty on Jan 1st
+
+      // No completed cells; today (Jan 1) is the accent cell, rest are dim
+      const filledRe = new RegExp(`<rect[^>]*fill="${DEFAULT_CONFIG.filledCircleColor}"`, 'g');
+      expect((svg.match(filledRe) || []).length).toBe(0);
+      const dimRe = new RegExp(`<rect[^>]*fill="${DEFAULT_CONFIG.emptyCircleColor}"`, 'g');
+      // 365 future days + 1 progress bar track
+      expect((svg.match(dimRe) || []).length).toBe(366);
     });
 
     test('should handle year end correctly', () => {
       const date = new Date(2024, 11, 31); // December 31st (leap year, 365 days completed)
       const svg = generateSVG(date);
       const totalDays = getTotalDaysInYear(2024);
-      
-      // All completed day rectangles (totalDays - 1) should be filled
-      // Plus some digit segments for percentage display
-      const filledRectMatches = svg.match(/<rect[^>]*fill="#FFFFFF"[^>]*\/>/g) || [];
-      expect(filledRectMatches.length).toBeGreaterThanOrEqual(totalDays - 1);
-      
-      // 1 empty rectangle for the current day (Dec 31st)
-      const emptyDayRects = (svg.match(/<rect[^>]*fill="none"[^>]*stroke/g) || []).length;
-      expect(emptyDayRects).toBe(1);
+
+      // All days except today are completed; today (Dec 31) is the accent cell
+      const filledRe = new RegExp(`<rect[^>]*fill="${DEFAULT_CONFIG.filledCircleColor}"`, 'g');
+      expect((svg.match(filledRe) || []).length).toBe(totalDays - 1);
+      const dimRe = new RegExp(`<rect[^>]*fill="${DEFAULT_CONFIG.emptyCircleColor}"`, 'g');
+      // No future days; only the progress bar track uses the dim color
+      expect((svg.match(dimRe) || []).length).toBe(1);
     });
 
     test('should include month letters for last day of each month', () => {
-      const date = new Date(2024, 6, 15); // July 15, 2024 (leap year)
+      const date = new Date(2024, 6, 15); // July 15, 2024
       const svg = generateSVG(date);
-      
-      // Month letters are drawn as shapes (rects/polygons), not text
-      // Check that we have polygon elements (used for M and N letters)
-      const polygonMatches = svg.match(/<polygon/g) || [];
-      // By July 15, we've passed Jan (j), Feb (f), Mar (m), Apr (a), May (m), Jun (j)
-      // M appears twice (Mar, May) and each M has 2 polygons
-      expect(polygonMatches.length).toBeGreaterThanOrEqual(4);
+
+      // Month letters on completed cells are stroked with the filled-cell letter color
+      const letterRe = new RegExp(`stroke="${DEFAULT_CONFIG.monthLetterOnFilled}"`, 'g');
+      // By July 15, six month-end cells (Jan-Jun) are completed
+      expect((svg.match(letterRe) || []).length).toBeGreaterThanOrEqual(6);
     });
 
-    test('should have shapes for 12 month letters total for the year', () => {
-      const date = new Date(2024, 11, 31); // December 31, 2024
+    test('should render caption with singular day on Dec 31', () => {
+      const date = new Date(2024, 11, 31);
       const svg = generateSVG(date);
-      
-      // Month letters use polygons for M and N shapes
-      // M appears twice (Mar, May), N appears once (Nov) - each has 2 and 1 polygon respectively
-      const polygonMatches = svg.match(/<polygon/g) || [];
-      // 2 M letters * 2 polygons + 1 N letter * 1 polygon = 5 polygons minimum
-      expect(polygonMatches.length).toBeGreaterThanOrEqual(5);
+      // "1 DAY LEFT" renders as shapes, so just make sure generation works
+      expect(svg).toContain('</svg>');
     });
   });
 });

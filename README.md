@@ -1,13 +1,15 @@
 # Auto-Updating Year Progress Wallpaper
 
-A serverless function that generates a daily wallpaper showing your year progress. The wallpaper displays a 7×52/53 grid of circles (one for each day of the year) with filled circles for days that have passed and a year percentage tracker at the bottom.
+A serverless function that generates a daily wallpaper showing your year progress. The wallpaper displays a grid of rounded day cells (one for each day of the year), a glowing marker on today, a slim progress bar, and the year percentage — all over a soft gradient background.
 
 ## Features
 
 - **Auto-updating**: Generates a fresh image on each request based on the current date
-- **Year Progress Grid**: 7 columns × 52-53 rows representing all days of the year
-- **Visual Progress**: Filled circles for passed days, empty circles for future days
-- **Year Percentage**: Displays current year progress percentage at the bottom
+- **Year Progress Grid**: 14 columns × 26-27 rows of rounded cells representing all days of the year
+- **Today Marker**: The current day glows in an accent color so you can find yourself in the year
+- **Progress Bar + Stats**: Slim progress bar, truncated year percentage, and a days-left caption
+- **Daily Quote**: A rotating motivational quote rendered in a monoline shape font (no system fonts needed)
+- **Customizable Accent**: Pass `?accent=RRGGBB` to change the accent color (e.g. `?accent=7DD3FC`)
 - **iPhone Optimized**: Image dimensions optimized for iPhone wallpapers (1170×2532)
 
 ## Setup
@@ -74,24 +76,31 @@ Now your wallpaper will automatically update every day!
 ## How It Works
 
 - The API endpoint calculates the current day of the year
-- It generates a grid where each circle represents one day
-- Circles are filled for days that have passed (1 to current day)
-- Empty circles represent future days
-- The year progress percentage is calculated and displayed at the bottom
+- It generates a grid where each rounded cell represents one day
+- Cells are filled for days that have passed, dimmed for future days, and today glows in the accent color
+- Month-end cells carry a subtle month initial
+- A slim progress bar, the year percentage (truncated, never rounded up), a days-left caption, and a daily quote sit below the grid
+- All text is drawn as thin stroked SVG paths (a built-in monoline "font"), so it renders identically on serverless machines with no fonts installed
 - The image is generated fresh on each request, so it's always up to date
 
 ## Customization
 
-You can customize the appearance by editing `api/wallpaper.js`:
+Quick accent color change without touching code — add a query param to the URL in your Shortcut:
 
-- **Colors**: Change `fillStyle` and `strokeStyle` values
-- **Circle size**: Adjust `circleRadius` multiplier
-- **Font size**: Modify the font size calculation for the percentage text
-- **Image dimensions**: Change `width` and `height` values
+```
+https://your-project.vercel.app/api/wallpaper?accent=7DD3FC
+```
+
+For deeper changes, edit `DEFAULT_CONFIG` in `utils/wallpaperGenerator.js`:
+
+- **Colors**: background gradient, cell colors, accent, text and quote colors
+- **Grid density**: `cols` (days per row)
+- **Spacing**: paddings and layout spaces
+- **Image dimensions**: `width` and `height`
 
 ## Technical Details
 
-- Built with Node.js and Canvas library
+- Built with Node.js; SVG generated in code and rasterized to PNG with sharp
 - Deployed as a Vercel serverless function
 - Image generated on-demand (no storage needed)
 - Handles leap years automatically

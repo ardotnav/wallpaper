@@ -1,22 +1,31 @@
 const { getCompletedDays, getTotalDaysInYear, getYearProgress, getMonthEndDays, getDayOfYear } = require('./dateUtils');
 const { getQuoteForDay } = require('./quotes');
-const { renderText, getCharWidth } = require('./letterShapes');
+const { renderText, drawChar, getCharWidth, measureText } = require('./letterShapes');
 
-// Default configuration - grid expands to fill more space
+// Default configuration
 const DEFAULT_CONFIG = {
   width: 1170,
   height: 2532,
-  cols: 14,  // 2 weeks per row
-  topPadding: 420,
-  sidePadding: 320,
+  cols: 14, // 2 weeks per row
+
+  topPadding: 500,
+  sidePadding: 300,
   percentageSpace: 80,
   quoteSpace: 120,
   bottomPadding: 240,
-  backgroundColor: '#0A1628',  // Darker blue
-  filledCircleColor: '#FFFFFF',
-  emptyCircleColor: '#333333',
-  textColor: '#FFFFFF',
-  quoteColor: '#888888',
+
+  // Colors
+  backgroundColor: '#0B1626',
+  backgroundTop: '#101E32',
+  backgroundBottom: '#060B14',
+  filledCircleColor: '#E8EDF4',   // completed day cells
+  emptyCircleColor: '#182640',    // future day cells
+  accentColor: '#F5B84F',         // today marker, bar tip
+  textColor: '#EDF1F7',
+  captionColor: '#5C6D85',
+  quoteColor: '#6C7E96',
+  monthLetterOnFilled: '#8E9AAB',
+  monthLetterOnEmpty: '#2E4160',
 };
 
 /**
@@ -25,26 +34,19 @@ const DEFAULT_CONFIG = {
 function calculateGridLayout(totalDays, config = {}) {
   const cfg = { ...DEFAULT_CONFIG, ...config };
   const rows = Math.ceil(totalDays / cfg.cols);
-  
-  // Calculate available space (now accounting for quote space)
+
   const gridWidth = cfg.width - (cfg.sidePadding * 2);
   const gridHeight = cfg.height - cfg.topPadding - cfg.percentageSpace - cfg.quoteSpace - cfg.bottomPadding;
-  
-  // Use horizontal spacing to fill the width (1/3 of screen)
-  const cellWidth = gridWidth / cfg.cols;
-  const cellHeight = gridHeight / rows;
-  
-  // Separate horizontal and vertical spacing
-  const horizontalSpacing = cellWidth;
-  const verticalSpacing = cellHeight;
-  const circleRadius = Math.min(horizontalSpacing, verticalSpacing) * cfg.circleRadiusMultiplier;
-  
-  // Center the grid
+
+  const horizontalSpacing = gridWidth / cfg.cols;
+  const verticalSpacing = gridHeight / rows;
+  const circleRadius = Math.min(horizontalSpacing, verticalSpacing) * 0.35;
+
   const totalGridWidth = cfg.cols * horizontalSpacing;
   const totalGridHeight = rows * verticalSpacing;
   const startX = cfg.sidePadding + (gridWidth - totalGridWidth) / 2;
   const startY = cfg.topPadding + (gridHeight - totalGridHeight) / 2;
-  
+
   return {
     rows,
     cols: cfg.cols,
@@ -58,176 +60,18 @@ function calculateGridLayout(totalDays, config = {}) {
 }
 
 /**
- * Draw a digit using clean, rounded pill shapes
- * Modern, minimal aesthetic
- */
-function drawDigit(digit, x, y, width, height, color) {
-  const w = width;
-  const h = height;
-  const t = width * 0.18; // segment thickness
-  const g = t * 0.4; // gap between segments
-  const r = t / 2; // fully rounded
-  
-  const segments = {
-    '0': [1, 1, 1, 0, 1, 1, 1],
-    '1': [0, 0, 1, 0, 0, 1, 0],
-    '2': [1, 0, 1, 1, 1, 0, 1],
-    '3': [1, 0, 1, 1, 0, 1, 1],
-    '4': [0, 1, 1, 1, 0, 1, 0],
-    '5': [1, 1, 0, 1, 0, 1, 1],
-    '6': [1, 1, 0, 1, 1, 1, 1],
-    '7': [1, 0, 1, 0, 0, 1, 0],
-    '8': [1, 1, 1, 1, 1, 1, 1],
-    '9': [1, 1, 1, 1, 0, 1, 1],
-  };
-  
-  const seg = segments[digit];
-  if (!seg) return '';
-  
-  let svg = '';
-  
-  // Horizontal segments
-  const hLen = w - 2 * t - 2 * g;
-  const hX = x + t + g;
-  
-  // Vertical segments  
-  const vLen = h / 2 - t - g * 1.5;
-  
-  if (seg[0]) svg += `<rect x="${hX}" y="${y}" width="${hLen}" height="${t}" fill="${color}" rx="${r}"/>`;
-  if (seg[1]) svg += `<rect x="${x}" y="${y + t + g}" width="${t}" height="${vLen}" fill="${color}" rx="${r}"/>`;
-  if (seg[2]) svg += `<rect x="${x + w - t}" y="${y + t + g}" width="${t}" height="${vLen}" fill="${color}" rx="${r}"/>`;
-  if (seg[3]) svg += `<rect x="${hX}" y="${y + h/2 - t/2}" width="${hLen}" height="${t}" fill="${color}" rx="${r}"/>`;
-  if (seg[4]) svg += `<rect x="${x}" y="${y + h/2 + g}" width="${t}" height="${vLen}" fill="${color}" rx="${r}"/>`;
-  if (seg[5]) svg += `<rect x="${x + w - t}" y="${y + h/2 + g}" width="${t}" height="${vLen}" fill="${color}" rx="${r}"/>`;
-  if (seg[6]) svg += `<rect x="${hX}" y="${y + h - t}" width="${hLen}" height="${t}" fill="${color}" rx="${r}"/>`;
-  
-  return svg;
-}
-
-/**
- * Draw a decimal point
- */
-function drawDot(x, y, size, color) {
-  return `<circle cx="${x}" cy="${y}" r="${size/2}" fill="${color}"/>`;
-}
-
-/**
- * Draw a letter using simple geometric shapes
- * Letters: j, f, m, a, s, o, n, d (month initials)
- */
-function drawLetter(letter, x, y, size, color) {
-  const s = size;
-  const t = s * 0.2; // stroke thickness
-  const r = t / 2;   // corner radius
-  
-  let svg = '';
-  
-  switch (letter) {
-    case 'j':
-      // J shape: horizontal top + vertical right + curved bottom
-      svg += `<rect x="${x + s*0.3}" y="${y}" width="${s*0.5}" height="${t}" fill="${color}" rx="${r}"/>`;
-      svg += `<rect x="${x + s*0.5 - t/2}" y="${y}" width="${t}" height="${s*0.75}" fill="${color}" rx="${r}"/>`;
-      svg += `<rect x="${x + s*0.15}" y="${y + s*0.7}" width="${s*0.35 + t/2}" height="${t}" fill="${color}" rx="${r}"/>`;
-      svg += `<rect x="${x + s*0.15}" y="${y + s*0.5}" width="${t}" height="${s*0.2 + t}" fill="${color}" rx="${r}"/>`;
-      break;
-    case 'f':
-      // F shape: vertical left + horizontal top + horizontal middle
-      svg += `<rect x="${x + s*0.2}" y="${y}" width="${t}" height="${s}" fill="${color}" rx="${r}"/>`;
-      svg += `<rect x="${x + s*0.2}" y="${y}" width="${s*0.6}" height="${t}" fill="${color}" rx="${r}"/>`;
-      svg += `<rect x="${x + s*0.2}" y="${y + s*0.45}" width="${s*0.45}" height="${t}" fill="${color}" rx="${r}"/>`;
-      break;
-    case 'm':
-      // M shape: two verticals + two diagonals meeting in middle
-      svg += `<rect x="${x + s*0.1}" y="${y}" width="${t}" height="${s}" fill="${color}" rx="${r}"/>`;
-      svg += `<rect x="${x + s*0.9 - t}" y="${y}" width="${t}" height="${s}" fill="${color}" rx="${r}"/>`;
-      svg += `<polygon points="${x + s*0.1},${y} ${x + s*0.1 + t},${y} ${x + s*0.5 + t/2},${y + s*0.5} ${x + s*0.5 - t/2},${y + s*0.5}" fill="${color}"/>`;
-      svg += `<polygon points="${x + s*0.9 - t},${y} ${x + s*0.9},${y} ${x + s*0.5 + t/2},${y + s*0.5} ${x + s*0.5 - t/2},${y + s*0.5}" fill="${color}"/>`;
-      break;
-    case 'a':
-      // A shape: triangle top + horizontal middle + two legs
-      svg += `<rect x="${x + s*0.1}" y="${y + s*0.3}" width="${t}" height="${s*0.7}" fill="${color}" rx="${r}"/>`;
-      svg += `<rect x="${x + s*0.9 - t}" y="${y + s*0.3}" width="${t}" height="${s*0.7}" fill="${color}" rx="${r}"/>`;
-      svg += `<rect x="${x + s*0.1}" y="${y + s*0.55}" width="${s*0.8}" height="${t}" fill="${color}" rx="${r}"/>`;
-      svg += `<rect x="${x + s*0.3}" y="${y}" width="${s*0.4}" height="${t}" fill="${color}" rx="${r}"/>`;
-      svg += `<rect x="${x + s*0.1}" y="${y + s*0.15}" width="${s*0.25}" height="${t}" fill="${color}" rx="${r}"/>`;
-      svg += `<rect x="${x + s*0.65}" y="${y + s*0.15}" width="${s*0.25}" height="${t}" fill="${color}" rx="${r}"/>`;
-      break;
-    case 's':
-      // S shape: three horizontal bars + two connectors
-      svg += `<rect x="${x + s*0.2}" y="${y}" width="${s*0.6}" height="${t}" fill="${color}" rx="${r}"/>`;
-      svg += `<rect x="${x + s*0.2}" y="${y + s*0.45}" width="${s*0.6}" height="${t}" fill="${color}" rx="${r}"/>`;
-      svg += `<rect x="${x + s*0.2}" y="${y + s - t}" width="${s*0.6}" height="${t}" fill="${color}" rx="${r}"/>`;
-      svg += `<rect x="${x + s*0.2}" y="${y}" width="${t}" height="${s*0.45 + t}" fill="${color}" rx="${r}"/>`;
-      svg += `<rect x="${x + s*0.8 - t}" y="${y + s*0.45}" width="${t}" height="${s*0.55}" fill="${color}" rx="${r}"/>`;
-      break;
-    case 'o':
-      // O shape: rectangle outline
-      svg += `<rect x="${x + s*0.15}" y="${y}" width="${s*0.7}" height="${t}" fill="${color}" rx="${r}"/>`;
-      svg += `<rect x="${x + s*0.15}" y="${y + s - t}" width="${s*0.7}" height="${t}" fill="${color}" rx="${r}"/>`;
-      svg += `<rect x="${x + s*0.15}" y="${y}" width="${t}" height="${s}" fill="${color}" rx="${r}"/>`;
-      svg += `<rect x="${x + s*0.85 - t}" y="${y}" width="${t}" height="${s}" fill="${color}" rx="${r}"/>`;
-      break;
-    case 'n':
-      // N shape: two verticals + diagonal
-      svg += `<rect x="${x + s*0.15}" y="${y}" width="${t}" height="${s}" fill="${color}" rx="${r}"/>`;
-      svg += `<rect x="${x + s*0.85 - t}" y="${y}" width="${t}" height="${s}" fill="${color}" rx="${r}"/>`;
-      svg += `<polygon points="${x + s*0.15},${y} ${x + s*0.15 + t},${y} ${x + s*0.85},${y + s} ${x + s*0.85 - t},${y + s}" fill="${color}"/>`;
-      break;
-    case 'd':
-      // D shape: vertical left + curved right
-      svg += `<rect x="${x + s*0.2}" y="${y}" width="${t}" height="${s}" fill="${color}" rx="${r}"/>`;
-      svg += `<rect x="${x + s*0.2}" y="${y}" width="${s*0.45}" height="${t}" fill="${color}" rx="${r}"/>`;
-      svg += `<rect x="${x + s*0.2}" y="${y + s - t}" width="${s*0.45}" height="${t}" fill="${color}" rx="${r}"/>`;
-      svg += `<rect x="${x + s*0.65}" y="${y + s*0.15}" width="${t}" height="${s*0.7}" fill="${color}" rx="${r}"/>`;
-      svg += `<rect x="${x + s*0.55}" y="${y}" width="${t}" height="${s*0.2}" fill="${color}" rx="${r}"/>`;
-      svg += `<rect x="${x + s*0.55}" y="${y + s*0.8}" width="${t}" height="${s*0.2}" fill="${color}" rx="${r}"/>`;
-      break;
-  }
-  
-  return svg;
-}
-
-/**
- * Draw percent sign - two small circles and a diagonal
- */
-function drawPercent(x, y, width, height, color) {
-  const circleR = height * 0.12;
-  const strokeW = height * 0.12;
-  const padding = circleR + strokeW/2;
-  
-  let svg = '';
-  svg += `<circle cx="${x + padding}" cy="${y + padding}" r="${circleR}" fill="${color}"/>`;
-  svg += `<circle cx="${x + width - padding}" cy="${y + height - padding}" r="${circleR}" fill="${color}"/>`;
-  svg += `<line x1="${x + width - strokeW}" y1="${y + strokeW}" x2="${x + strokeW}" y2="${y + height - strokeW}" stroke="${color}" stroke-width="${strokeW}" stroke-linecap="round"/>`;
-  
-  return svg;
-}
-
-/**
- * Generate quote text with word wrapping using shape-based rendering
- * No fonts required - works universally
+ * Word-wrap and render the quote as centered monoline text
  */
 function generateQuoteText(quote, centerX, centerY, fontSize, maxWidth, color) {
-  const letterHeight = fontSize * 0.85;
-  const letterSpacing = fontSize * 0.08;
-  
-  // Calculate line width for a given text
-  const getLineWidth = (text) => {
-    let width = 0;
-    for (const char of text) {
-      width += getCharWidth(char, letterHeight) + letterSpacing;
-    }
-    return width - letterSpacing;
-  };
-  
-  // Split quote into words and wrap lines based on actual rendered width
+  const letterSpacing = fontSize * 0.12;
+
   const words = quote.split(' ');
   const lines = [];
   let currentLine = '';
-  
+
   for (const word of words) {
     const testLine = currentLine ? `${currentLine} ${word}` : word;
-    if (getLineWidth(testLine) <= maxWidth) {
+    if (measureText(testLine, fontSize, letterSpacing) <= maxWidth) {
       currentLine = testLine;
     } else {
       if (currentLine) lines.push(currentLine);
@@ -235,82 +79,21 @@ function generateQuoteText(quote, centerX, centerY, fontSize, maxWidth, color) {
     }
   }
   if (currentLine) lines.push(currentLine);
-  
-  // Calculate total height and starting Y position to center vertically
-  const lineHeight = letterHeight * 1.5;
-  const totalHeight = lines.length * lineHeight;
+
+  const lineHeight = fontSize * 1.9;
+  const totalHeight = (lines.length - 1) * lineHeight + fontSize;
   const startY = centerY - totalHeight / 2;
-  
+
   let svg = '';
-  
-  // Render each line centered horizontally using shape-based text
   lines.forEach((line, index) => {
-    const y = startY + index * lineHeight;
-    svg += renderText(line, centerX, y, letterHeight, color, letterSpacing);
+    svg += renderText(line, centerX, startY + index * lineHeight, fontSize, color, letterSpacing);
   });
-  
-  return svg;
-}
 
-/**
- * Escape special XML characters in text
- */
-function escapeXml(text) {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-}
-
-/**
- * Generate percentage display using shapes
- */
-function generatePercentageText(percentage, centerX, centerY, height, color) {
-  const text = String(percentage);
-  const digitW = height * 0.55;
-  const digitGap = height * 0.15;
-  const dotSize = height * 0.15;
-  const percentW = height * 0.55;
-  const percentGap = height * 0.2;
-  
-  // Calculate total width
-  let totalWidth = 0;
-  for (const char of text) {
-    if (char === '.') {
-      totalWidth += dotSize + digitGap * 0.5;
-    } else {
-      totalWidth += digitW + digitGap;
-    }
-  }
-  totalWidth += percentGap + percentW;
-  totalWidth -= digitGap; // Remove trailing gap
-  
-  let currentX = centerX - totalWidth / 2;
-  const topY = centerY - height / 2;
-  
-  let svg = '';
-  
-  for (const char of text) {
-    if (char === '.') {
-      svg += drawDot(currentX + dotSize/2, topY + height - dotSize/2, dotSize, color);
-      currentX += dotSize + digitGap * 0.5;
-    } else if (char >= '0' && char <= '9') {
-      svg += drawDigit(char, currentX, topY, digitW, height, color);
-      currentX += digitW + digitGap;
-    }
-  }
-  
-  currentX += percentGap - digitGap;
-  svg += drawPercent(currentX, topY, percentW, height, color);
-  
   return svg;
 }
 
 /**
  * Generate SVG markup for the wallpaper
- * Clean, minimal design
  */
 function generateSVG(date, config = {}) {
   const cfg = { ...DEFAULT_CONFIG, ...config };
@@ -318,83 +101,117 @@ function generateSVG(date, config = {}) {
   const completedDays = getCompletedDays(date);
   const totalDays = getTotalDaysInYear(year);
   const yearProgress = getYearProgress(date);
-  
+  const progressFraction = completedDays / totalDays;
+  const daysLeft = totalDays - completedDays;
+  const todayNumber = completedDays + 1;
+
   const layout = calculateGridLayout(totalDays, cfg);
-  
+
   let svg = `<svg width="${cfg.width}" height="${cfg.height}" xmlns="http://www.w3.org/2000/svg">`;
-  
-  // Pure black background
+
+  // Gradient background with a faint glow behind the grid for depth
+  svg += `<defs>`;
+  svg += `<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">`;
+  svg += `<stop offset="0" stop-color="${cfg.backgroundTop}"/>`;
+  svg += `<stop offset="1" stop-color="${cfg.backgroundBottom}"/>`;
+  svg += `</linearGradient>`;
+  svg += `<radialGradient id="todayGlow">`;
+  svg += `<stop offset="0" stop-color="${cfg.accentColor}" stop-opacity="0.4"/>`;
+  svg += `<stop offset="1" stop-color="${cfg.accentColor}" stop-opacity="0"/>`;
+  svg += `</radialGradient>`;
+  svg += `<linearGradient id="barFill" x1="0" y1="0" x2="1" y2="0">`;
+  svg += `<stop offset="0" stop-color="${cfg.filledCircleColor}" stop-opacity="0.45"/>`;
+  svg += `<stop offset="1" stop-color="${cfg.accentColor}"/>`;
+  svg += `</linearGradient>`;
+  svg += `</defs>`;
+
   svg += `<rect width="${cfg.width}" height="${cfg.height}" fill="${cfg.backgroundColor}"/>`;
-  
-  // Draw grid squares for each day - math notebook style
-  // Use uniform spacing (smaller of the two) for both directions
+  svg += `<rect width="${cfg.width}" height="${cfg.height}" fill="url(#bg)"/>`;
+
+  // Day grid: soft rounded cells, dimmed future days, glowing "today"
   const uniformSpacing = Math.min(layout.horizontalSpacing, layout.verticalSpacing);
-  const boxSize = uniformSpacing * 0.88; // Bigger boxes
+  const boxSize = uniformSpacing * 0.72;
   const gap = uniformSpacing - boxSize;
-  const strokeWidth = 1;
-  
-  // Recalculate start positions for uniform grid centered in available space
+  const cornerRadius = +(boxSize * 0.32).toFixed(2);
+
   const totalGridWidth = layout.cols * uniformSpacing;
   const totalGridHeight = layout.rows * uniformSpacing;
   const gridStartX = (cfg.width - totalGridWidth) / 2;
-  const gridStartY = cfg.topPadding + (cfg.height - cfg.topPadding - cfg.percentageSpace - cfg.quoteSpace - cfg.bottomPadding - totalGridHeight) / 2;
-  
-  // Get month-end days mapping
+  const gridStartY = cfg.topPadding;
+
   const monthEndDays = getMonthEndDays(year);
-  const letterSize = boxSize * 0.55;
+  const letterSize = boxSize * 0.5;
 
   for (let row = 0; row < layout.rows; row++) {
     for (let col = 0; col < layout.cols; col++) {
       const dayNumber = row * layout.cols + col + 1;
-      const x = gridStartX + col * uniformSpacing + gap / 2;
-      const y = gridStartY + row * uniformSpacing + gap / 2;
+      if (dayNumber > totalDays) continue;
 
-      if (dayNumber <= totalDays) {
-        const isCompleted = dayNumber <= completedDays;
-        const monthLetter = monthEndDays[dayNumber];
-        
-        if (isCompleted) {
-          // Filled square for completed days
-          svg += `<rect x="${x}" y="${y}" width="${boxSize}" height="${boxSize}" fill="${cfg.filledCircleColor}"/>`;
-          // Add month letter in subtle color (barely visible)
-          if (monthLetter) {
-            const letterX = x + (boxSize - letterSize) / 2;
-            const letterY = y + (boxSize - letterSize) / 2;
-            svg += drawLetter(monthLetter, letterX, letterY, letterSize, '#e0e0e0');
-          }
-        } else {
-          // Empty square with border for future days
-          svg += `<rect x="${x}" y="${y}" width="${boxSize}" height="${boxSize}" fill="none" stroke="${cfg.emptyCircleColor}" stroke-width="${strokeWidth}"/>`;
-          // Add month letter in subtle color (barely visible)
-          if (monthLetter) {
-            const letterX = x + (boxSize - letterSize) / 2;
-            const letterY = y + (boxSize - letterSize) / 2;
-            svg += drawLetter(monthLetter, letterX, letterY, letterSize, '#1a2a3d');
-          }
-        }
+      const x = +(gridStartX + col * uniformSpacing + gap / 2).toFixed(2);
+      const y = +(gridStartY + row * uniformSpacing + gap / 2).toFixed(2);
+      const monthLetter = monthEndDays[dayNumber];
+      const cell = (fill) =>
+        `<rect x="${x}" y="${y}" width="${boxSize.toFixed(2)}" height="${boxSize.toFixed(2)}" rx="${cornerRadius}" fill="${fill}"/>`;
+      const letter = (color) => {
+        if (!monthLetter) return '';
+        const lx = x + (boxSize - getCharWidth(monthLetter, letterSize)) / 2;
+        const ly = y + (boxSize - letterSize) / 2;
+        return drawChar(monthLetter, lx, ly, letterSize, color);
+      };
+
+      if (dayNumber === todayNumber) {
+        // Today: accent cell with a soft glow so you can find yourself in the year
+        const cx = x + boxSize / 2;
+        const cy = y + boxSize / 2;
+        svg += `<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${(boxSize * 2.4).toFixed(2)}" fill="url(#todayGlow)"/>`;
+        svg += cell(cfg.accentColor);
+        svg += letter(cfg.backgroundBottom);
+      } else if (dayNumber <= completedDays) {
+        svg += cell(cfg.filledCircleColor);
+        svg += letter(cfg.monthLetterOnFilled);
+      } else {
+        svg += cell(cfg.emptyCircleColor);
+        svg += letter(cfg.monthLetterOnEmpty);
       }
     }
   }
-  
-  // Update gridBottom for percentage positioning
-  const gridBottomNew = gridStartY + layout.rows * uniformSpacing;
 
-  // Year percentage - clean typography, centered below grid
-  const fontSize = 48;
-  const textY = gridBottomNew + cfg.percentageSpace / 2;
-  svg += generatePercentageText(yearProgress, cfg.width / 2, textY, fontSize, cfg.textColor);
-  
-  // Daily motivational quote - centered below percentage
+  const gridBottom = gridStartY + totalGridHeight;
+
+  // Slim progress bar aligned with the grid
+  const barX = gridStartX + gap / 2;
+  const barWidth = totalGridWidth - gap;
+  const barY = gridBottom + 88;
+  const barHeight = 8;
+  const fillWidth = Math.max(barHeight, progressFraction * barWidth);
+
+  svg += `<rect x="${barX.toFixed(2)}" y="${barY}" width="${barWidth.toFixed(2)}" height="${barHeight}" rx="${barHeight / 2}" fill="${cfg.emptyCircleColor}"/>`;
+  svg += `<rect x="${barX.toFixed(2)}" y="${barY}" width="${fillWidth.toFixed(2)}" height="${barHeight}" rx="${barHeight / 2}" fill="url(#barFill)"/>`;
+  const tipX = (barX + fillWidth).toFixed(2);
+  const tipY = barY + barHeight / 2;
+  svg += `<circle cx="${tipX}" cy="${tipY}" r="16" fill="${cfg.accentColor}" fill-opacity="0.25"/>`;
+  svg += `<circle cx="${tipX}" cy="${tipY}" r="7" fill="${cfg.accentColor}"/>`;
+
+  // Big percentage in monoline digits (truncated, not rounded — never overstate progress)
+  const pctText = `${(Math.floor(Number(yearProgress) * 10) / 10).toFixed(1)}%`;
+  const pctSize = 110;
+  const pctY = barY + 72;
+  svg += renderText(pctText, cfg.width / 2, pctY, pctSize, cfg.textColor, pctSize * 0.1, pctSize * 0.082);
+
+  // Small letterspaced caption
+  const captionSize = 26;
+  const captionY = pctY + pctSize + 58;
+  const caption = `${daysLeft} DAY${daysLeft === 1 ? '' : 'S'} LEFT`;
+  svg += renderText(caption, cfg.width / 2, captionY, captionSize, cfg.captionColor, captionSize * 0.38);
+
+  // Daily quote
   const dayOfYear = getDayOfYear(date);
   const quote = getQuoteForDay(dayOfYear);
-  const quoteY = gridBottomNew + cfg.percentageSpace + cfg.quoteSpace / 2;
-  const quoteFontSize = 28;
-  const maxQuoteWidth = cfg.width - 100; // 50px padding on each side
-  
-  svg += generateQuoteText(quote, cfg.width / 2, quoteY, quoteFontSize, maxQuoteWidth, cfg.quoteColor);
-  
+  const quoteCenterY = captionY + 200;
+  svg += generateQuoteText(quote, cfg.width / 2, quoteCenterY, 27, cfg.width - 240, cfg.quoteColor);
+
   svg += `</svg>`;
-  
+
   return svg;
 }
 
