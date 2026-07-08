@@ -276,7 +276,7 @@ function generateSVG(date, config = {}) {
   const dayOfYear = getDayOfYear(date);
   const quote = getQuoteForDay(dayOfYear);
   const quoteCenterY = gridBottom + cfg.percentageSpace + cfg.quoteSpace / 2 + (useFont ? 36 : 0);
-  svg += generateQuoteText(quote, cfg.width / 2, quoteCenterY, useFont ? 40 : 24, 780, cfg.quoteColor, useFont);
+  svg += generateQuoteText(quote, cfg.width / 2, quoteCenterY, useFont ? 48 : 24, 780, cfg.quoteColor, useFont);
 
   svg += `</svg>`;
 
