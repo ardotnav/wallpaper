@@ -91,6 +91,16 @@ describe('wallpaperGenerator', () => {
       expect(svg).toContain(`fill="${DEFAULT_CONFIG.backgroundColor}"`);
     });
 
+    test('places the Renaissance ornament behind the grid and supporting copy', () => {
+      const svg = generateSVG(new Date(2024, 0, 15));
+      const ornamentIndex = svg.indexOf('id="renaissance-ornament"');
+
+      expect(ornamentIndex).toBeGreaterThan(-1);
+      expect(svg).toContain('href="data:image/png;base64,');
+      expect(ornamentIndex).toBeLessThan(svg.indexOf('id="year-grid"'));
+      expect(ornamentIndex).toBeLessThan(svg.indexOf('id="supporting-copy"'));
+    });
+
     test('should include rectangles for all days', () => {
       const date = new Date(2024, 0, 15);
       const svg = generateSVG(date);

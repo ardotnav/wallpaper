@@ -1,6 +1,16 @@
+const fs = require('fs');
+const path = require('path');
 const { getCompletedDays, getTotalDaysInYear, getYearProgress, getMonthEndDays, getDayOfYear } = require('./dateUtils');
 const { getQuoteForDay } = require('./quotes');
 const { renderText, drawChar, getCharWidth, measureText } = require('./letterShapes');
+
+const ORNAMENT_PATH = path.join(__dirname, '..', 'assets', 'renaissance-ornament.png');
+let defaultOrnamentDataUri = '';
+try {
+  defaultOrnamentDataUri = `data:image/png;base64,${fs.readFileSync(ORNAMENT_PATH).toString('base64')}`;
+} catch (error) {
+  // Keep wallpaper generation available if a deployment omits the optional art.
+}
 
 // Default configuration
 const DEFAULT_CONFIG = {
@@ -147,6 +157,9 @@ function generateQuoteText(quote, centerX, centerY, fontSize, maxWidth, color, u
  */
 function generateSVG(date, config = {}) {
   const cfg = { ...DEFAULT_CONFIG, ...config };
+  const ornamentDataUri = config.ornamentDataUri === undefined
+    ? defaultOrnamentDataUri
+    : config.ornamentDataUri;
   const year = date.getFullYear();
   const completedDays = getCompletedDays(date);
   const totalDays = getTotalDaysInYear(year);
@@ -176,6 +189,12 @@ function generateSVG(date, config = {}) {
 
   svg += `<rect width="${cfg.width}" height="${cfg.height}" fill="${cfg.backgroundColor}"/>`;
   svg += `<rect width="${cfg.width}" height="${cfg.height}" fill="url(#bg)"/>`;
+
+  // Fine Renaissance rinceaux and acanthus ornament sits behind every
+  // functional element, leaving the clock, grid, percentage, and quote clear.
+  if (ornamentDataUri) {
+    svg += `<image id="renaissance-ornament" x="0" y="0" width="${cfg.width}" height="${cfg.height}" href="${ornamentDataUri}" preserveAspectRatio="none"/>`;
+  }
 
   // Day grid: soft rounded cells, dimmed future days, glowing "today"
   const uniformSpacing = Math.min(layout.horizontalSpacing, layout.verticalSpacing);
