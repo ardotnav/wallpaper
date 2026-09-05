@@ -18,6 +18,7 @@ const DEFAULT_CONFIG = {
   height: 2532,
   cols: 14, // 2 weeks per row
   gridScale: 0.85,
+  ornamentOpacity: 0.3,
 
   // iOS crops wallpapers unpredictably (9-16% zoom observed), so keep the
   // whole composition compact and end all content well above the bottom
@@ -193,7 +194,7 @@ function generateSVG(date, config = {}) {
   // Fine Renaissance rinceaux and acanthus ornament sits behind every
   // functional element, leaving the clock, grid, percentage, and quote clear.
   if (ornamentDataUri) {
-    svg += `<image id="renaissance-ornament" x="0" y="0" width="${cfg.width}" height="${cfg.height}" href="${ornamentDataUri}" preserveAspectRatio="none"/>`;
+    svg += `<image id="renaissance-ornament" x="0" y="0" width="${cfg.width}" height="${cfg.height}" opacity="${cfg.ornamentOpacity}" href="${ornamentDataUri}" preserveAspectRatio="none"/>`;
   }
 
   // Day grid: soft rounded cells, dimmed future days, glowing "today"

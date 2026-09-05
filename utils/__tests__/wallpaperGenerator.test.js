@@ -97,6 +97,7 @@ describe('wallpaperGenerator', () => {
 
       expect(ornamentIndex).toBeGreaterThan(-1);
       expect(svg).toContain('href="data:image/png;base64,');
+      expect(svg).toContain(`opacity="${DEFAULT_CONFIG.ornamentOpacity}"`);
       expect(ornamentIndex).toBeLessThan(svg.indexOf('id="year-grid"'));
       expect(ornamentIndex).toBeLessThan(svg.indexOf('id="supporting-copy"'));
     });
