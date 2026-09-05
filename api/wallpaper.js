@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { generateSVG } = require('../utils/wallpaperGenerator');
-const { getIndiaDate } = require('../utils/dateUtils');
+const { getDateInTimeZone } = require('../utils/dateUtils');
 
 // Point fontconfig at the bundled TTFs so sharp (librsvg/pango) can render
 // <text> on serverless machines that ship no system fonts.
@@ -54,19 +54,34 @@ function getConfigFromRequest(req) {
   return config;
 }
 
+function getTimeZoneFromRequest(req) {
+  try {
+    const url = new URL(req.url || '/', 'http://localhost');
+    const queryTimeZone = url.searchParams.get('tz');
+    if (queryTimeZone && queryTimeZone.length <= 100) return queryTimeZone;
+  } catch (error) {
+    // Fall through to Vercel's location header.
+  }
+
+  const headerTimeZone = req.headers && req.headers['x-vercel-ip-timezone'];
+  return typeof headerTimeZone === 'string' && headerTimeZone.length <= 100
+    ? headerTimeZone
+    : 'Asia/Kolkata';
+}
+
 // Use only plain Node.js response APIs (statusCode/setHeader/end).
 // Express-style helpers (res.status/res.send/res.json) are not available
 // on every Vercel runtime and crash with "res.status is not a function".
 function send(res, contentType, body) {
   res.statusCode = 200;
   res.setHeader('Content-Type', contentType);
-  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.setHeader('Cache-Control', 'no-store');
   res.end(body);
 }
 
 module.exports = async (req, res) => {
   try {
-    const now = getIndiaDate();
+    const now = getDateInTimeZone(getTimeZoneFromRequest(req));
     const svg = generateSVG(now, getConfigFromRequest(req));
 
     // Convert SVG to PNG using sharp

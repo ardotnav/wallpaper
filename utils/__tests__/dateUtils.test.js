@@ -1,4 +1,5 @@
 const {
+  getDateInTimeZone,
   getIndiaDate,
   getDayOfYear,
   getCompletedDays,
@@ -7,6 +8,26 @@ const {
   getTotalDaysInYear,
   getMonthEndDays,
 } = require('../dateUtils');
+
+describe('getDateInTimeZone', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  test('uses the requested local calendar day', () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-01T01:00:00Z'));
+
+    const losAngeles = getDateInTimeZone('America/Los_Angeles');
+    const kolkata = getDateInTimeZone('Asia/Kolkata');
+
+    expect([losAngeles.getFullYear(), losAngeles.getMonth(), losAngeles.getDate()]).toEqual([2025, 11, 31]);
+    expect([kolkata.getFullYear(), kolkata.getMonth(), kolkata.getDate()]).toEqual([2026, 0, 1]);
+  });
+
+  test('falls back safely when a time zone is invalid', () => {
+    expect(getDateInTimeZone('not/a-time-zone')).toBeInstanceOf(Date);
+  });
+});
 
 describe('dateUtils', () => {
   describe('getIndiaDate', () => {

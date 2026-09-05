@@ -1,17 +1,32 @@
-// Get the current date in India Standard Time (IST, UTC+5:30)
-function getIndiaDate() {
+// Get the current calendar date in a requested IANA time zone. Invalid or
+// unavailable zones fall back to IST, preserving the original behavior.
+function getDateInTimeZone(timeZone = 'Asia/Kolkata') {
   const now = new Date();
-  const formatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Kolkata',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
+  let formatter;
+  try {
+    formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+  } catch (error) {
+    formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+  }
   const parts = formatter.formatToParts(now);
   const year = parseInt(parts.find(p => p.type === 'year').value);
   const month = parseInt(parts.find(p => p.type === 'month').value) - 1;
   const day = parseInt(parts.find(p => p.type === 'day').value);
   return new Date(year, month, day);
+}
+
+function getIndiaDate() {
+  return getDateInTimeZone('Asia/Kolkata');
 }
 
 // Calculate day of year (1-365/366)
@@ -61,6 +76,7 @@ function getMonthEndDays(year) {
 }
 
 module.exports = {
+  getDateInTimeZone,
   getIndiaDate,
   getDayOfYear,
   getCompletedDays,

@@ -29,7 +29,7 @@ describe('Wallpaper API Handler', () => {
     await handler(req, res);
 
     expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'image/png');
-    expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'public, max-age=3600');
+    expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
     expect(res.statusCode).toBe(200);
     expect(res.end).toHaveBeenCalledWith(expect.any(Buffer));
   });
@@ -44,7 +44,7 @@ describe('Wallpaper API Handler', () => {
     await handler(req, res);
 
     expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'image/svg+xml');
-    expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'public, max-age=3600');
+    expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
     expect(res.statusCode).toBe(200);
     expect(res.end).toHaveBeenCalledWith(expect.stringContaining('<svg'));
   });
@@ -126,6 +126,6 @@ describe('Wallpaper API Handler', () => {
   test('should set correct cache headers', async () => {
     await handler(req, res);
 
-    expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'public, max-age=3600');
+    expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
   });
 });
