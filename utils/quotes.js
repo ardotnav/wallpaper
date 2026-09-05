@@ -98,16 +98,7 @@ function getQuoteForDay(dayOfYear) {
   return QUOTES[index];
 }
 
-/**
- * Get total number of unique quotes
- * @returns {number}
- */
-function getTotalQuotes() {
-  return QUOTES.length;
-}
-
 module.exports = {
   QUOTES,
   getQuoteForDay,
-  getTotalQuotes,
 };

@@ -11,8 +11,6 @@ describe('wallpaperGenerator', () => {
       expect(layout.cols).toBe(14);
       expect(layout.horizontalSpacing).toBeGreaterThan(0);
       expect(layout.verticalSpacing).toBeGreaterThan(0);
-      expect(layout.startX).toBeGreaterThan(0);
-      expect(layout.startY).toBeGreaterThan(0);
     });
 
     test('should calculate correct grid layout for leap year', () => {
@@ -31,21 +29,51 @@ describe('wallpaperGenerator', () => {
       };
       const layout = calculateGridLayout(365, customConfig);
       
-      expect(layout.config.width).toBe(2000);
-      expect(layout.config.height).toBe(3000);
-      expect(layout.config.sidePadding).toBe(100);
+      expect(layout.horizontalSpacing).toBeCloseTo(128.57, 2);
     });
 
     test('should maintain default values for unspecified config', () => {
       const layout = calculateGridLayout(365, { width: 2000 });
       
-      expect(layout.config.width).toBe(2000);
-      expect(layout.config.height).toBe(DEFAULT_CONFIG.height);
-      expect(layout.config.cols).toBe(DEFAULT_CONFIG.cols);
+      expect(layout.horizontalSpacing).toBeCloseTo(88.57, 2);
     });
   });
 
   describe('generateSVG', () => {
+    function getGridTransform(svg) {
+      const match = svg.match(/<g id="year-grid" transform="translate\(([-\d.]+) ([-\d.]+)\) scale\(([-\d.]+)\) translate\(([-\d.]+) ([-\d.]+)\)">/);
+      if (!match) throw new Error('year-grid transform was not found');
+      return match.slice(1).map(Number);
+    }
+
+    function getContentTransform(svg) {
+      const match = svg.match(/<g id="supporting-copy" transform="translate\(0 ([-\d.]+)\)">/);
+      if (!match) throw new Error('supporting-copy transform was not found');
+      return Number(match[1]);
+    }
+
+    test('scales the complete framed grid to 70 percent around its original center', () => {
+      const svg = generateSVG(new Date(2024, 0, 15));
+
+      const [centerX, centerY, scale, inverseX, inverseY] = getGridTransform(svg);
+      expect(centerX).toBe(585);
+      expect(centerY).toBe(1236);
+      expect(scale).toBe(0.7);
+      expect(inverseX).toBe(-centerX);
+      expect(inverseY).toBe(-centerY);
+    });
+
+    test('moves supporting copy with the scaled frame bottom while preserving its sizes', () => {
+      const date = new Date(2024, 0, 15);
+      const scaled = generateSVG(date);
+      const originalSize = generateSVG(date, { gridScale: 1 });
+
+      expect(getContentTransform(originalSize)).toBe(0);
+      expect(getContentTransform(scaled)).toBe(-130.24);
+      expect(scaled).toContain('font-size="58"');
+      expect(scaled).toContain('font-size="48"');
+    });
+
     test('should generate valid SVG string', () => {
       const date = new Date(2024, 0, 15); // January 15, 2024
       const svg = generateSVG(date);

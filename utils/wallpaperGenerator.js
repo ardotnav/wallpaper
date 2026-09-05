@@ -7,6 +7,7 @@ const DEFAULT_CONFIG = {
   width: 1170,
   height: 2532,
   cols: 14, // 2 weeks per row
+  gridScale: 0.7,
 
   // iOS crops wallpapers unpredictably (9-16% zoom observed), so keep the
   // whole composition compact and end all content well above the bottom
@@ -49,22 +50,11 @@ function calculateGridLayout(totalDays, config = {}) {
 
   const horizontalSpacing = gridWidth / cfg.cols;
   const verticalSpacing = gridHeight / rows;
-  const circleRadius = Math.min(horizontalSpacing, verticalSpacing) * 0.35;
-
-  const totalGridWidth = cfg.cols * horizontalSpacing;
-  const totalGridHeight = rows * verticalSpacing;
-  const startX = cfg.sidePadding + (gridWidth - totalGridWidth) / 2;
-  const startY = cfg.topPadding + (gridHeight - totalGridHeight) / 2;
-
   return {
     rows,
     cols: cfg.cols,
     horizontalSpacing,
     verticalSpacing,
-    circleRadius,
-    startX,
-    startY,
-    config: cfg,
   };
 }
 
@@ -197,6 +187,14 @@ function generateSVG(date, config = {}) {
   const totalGridHeight = layout.rows * uniformSpacing;
   const gridStartX = (cfg.width - totalGridWidth) / 2;
   const gridStartY = cfg.topPadding + (cfg.height - cfg.topPadding - cfg.percentageSpace - cfg.quoteSpace - cfg.bottomPadding - totalGridHeight) / 2;
+  const gridBottom = gridStartY + totalGridHeight;
+  const gridCenterX = gridStartX + totalGridWidth / 2;
+  const gridCenterY = gridStartY + totalGridHeight / 2;
+
+  // Scale the complete framed grid as one selected visual group. Scaling from
+  // its center preserves the composition while shrinking cells, month labels,
+  // glow, frame rules, strokes, and corner diamonds together.
+  svg += `<g id="year-grid" transform="translate(${gridCenterX.toFixed(2)} ${gridCenterY.toFixed(2)}) scale(${cfg.gridScale}) translate(${(-gridCenterX).toFixed(2)} ${(-gridCenterY).toFixed(2)})">`;
 
   const monthEndDays = getMonthEndDays(year);
   const letterSize = boxSize * 0.46;
@@ -247,8 +245,6 @@ function generateSVG(date, config = {}) {
     }
   }
 
-  const gridBottom = gridStartY + totalGridHeight;
-
   // Fine double-rule plate frame with diamond finials at the corners
   const frameMargin = 34;
   const fx1 = gridStartX + gap / 2 - frameMargin;
@@ -261,6 +257,13 @@ function generateSVG(date, config = {}) {
   for (const [dx, dy] of [[fx1 - 8, fy1 - 8], [fx2 + 8, fy1 - 8], [fx1 - 8, fy2 + 8], [fx2 + 8, fy2 + 8]]) {
     svg += `<rect x="${(dx - diamond / 2).toFixed(2)}" y="${(dy - diamond / 2).toFixed(2)}" width="${diamond}" height="${diamond}" fill="${cfg.accentColor}" transform="rotate(45 ${dx.toFixed(2)} ${dy.toFixed(2)})"/>`;
   }
+  svg += `</g>`;
+
+  // Follow the scaled frame upward while preserving every existing gap below
+  // it. Text sizes stay unchanged.
+  const frameOuterBottom = fy2 + 8;
+  const supportingCopyShift = (cfg.gridScale - 1) * (frameOuterBottom - gridCenterY);
+  svg += `<g id="supporting-copy" transform="translate(0 ${supportingCopyShift.toFixed(2)})">`;
 
   // Year percentage in Roman capitals, centered below the frame
   const pctCenterY = gridBottom + cfg.percentageSpace / 2;
@@ -277,6 +280,7 @@ function generateSVG(date, config = {}) {
   const quote = getQuoteForDay(dayOfYear);
   const quoteCenterY = gridBottom + cfg.percentageSpace + cfg.quoteSpace / 2 + (useFont ? 36 : 0);
   svg += generateQuoteText(quote, cfg.width / 2, quoteCenterY, useFont ? 48 : 24, 780, cfg.quoteColor, useFont);
+  svg += `</g>`;
 
   svg += `</svg>`;
 

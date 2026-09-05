@@ -1,4 +1,4 @@
-const { QUOTES, getQuoteForDay, getTotalQuotes } = require('../quotes');
+const { QUOTES, getQuoteForDay } = require('../quotes');
 
 describe('Quotes Module', () => {
   describe('QUOTES array', () => {
@@ -59,13 +59,4 @@ describe('Quotes Module', () => {
     });
   });
 
-  describe('getTotalQuotes', () => {
-    it('should return the correct number of quotes', () => {
-      expect(getTotalQuotes()).toBe(QUOTES.length);
-    });
-
-    it('should return a positive number', () => {
-      expect(getTotalQuotes()).toBeGreaterThan(0);
-    });
-  });
 });
