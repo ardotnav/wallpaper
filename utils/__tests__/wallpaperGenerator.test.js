@@ -52,13 +52,13 @@ describe('wallpaperGenerator', () => {
       return Number(match[1]);
     }
 
-    test('scales the complete framed grid to 70 percent around its original center', () => {
+    test('scales the complete framed grid to 85 percent around its original center', () => {
       const svg = generateSVG(new Date(2024, 0, 15));
 
       const [centerX, centerY, scale, inverseX, inverseY] = getGridTransform(svg);
       expect(centerX).toBe(585);
       expect(centerY).toBe(1236);
-      expect(scale).toBe(0.7);
+      expect(scale).toBe(0.85);
       expect(inverseX).toBe(-centerX);
       expect(inverseY).toBe(-centerY);
     });
@@ -69,7 +69,7 @@ describe('wallpaperGenerator', () => {
       const originalSize = generateSVG(date, { gridScale: 1 });
 
       expect(getContentTransform(originalSize)).toBe(0);
-      expect(getContentTransform(scaled)).toBe(-130.24);
+      expect(getContentTransform(scaled)).toBe(-65.12);
       expect(scaled).toContain('font-size="58"');
       expect(scaled).toContain('font-size="48"');
     });

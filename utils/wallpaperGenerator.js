@@ -7,7 +7,7 @@ const DEFAULT_CONFIG = {
   width: 1170,
   height: 2532,
   cols: 14, // 2 weeks per row
-  gridScale: 0.7,
+  gridScale: 0.85,
 
   // iOS crops wallpapers unpredictably (9-16% zoom observed), so keep the
   // whole composition compact and end all content well above the bottom
